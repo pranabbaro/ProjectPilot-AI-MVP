@@ -1,6 +1,6 @@
 {
   "name": "project-command-center",
-  "version": "3.4.0",
+  "version": "3.5.0",
   "private": true,
   "scripts": {
     "start": "node server.js",
@@ -9,5 +9,5 @@
   "engines": {
     "node": ">=18"
   },
-  "description": "Project Command Center v3.4 - fixed executive summary navigation and refresh"
+  "description": "Project Command Center v3.5 - Executive Summary as a real navigation view"
 }

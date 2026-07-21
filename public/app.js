@@ -193,37 +193,11 @@ async function createDiscussionItem(serialized,itemType){
 
 
 
-function setActiveNav(targetId){
-  document.querySelectorAll('.sidebar nav a').forEach(a=>a.classList.remove('active'));
-  const target=document.getElementById(targetId);
-  if(target)target.classList.add('active');
-}
 
-function openExecutiveSummary(event){
-  if(event)event.preventDefault();
-  setActiveNav('executiveSummaryNav');
 
-  const section=document.getElementById('executive-summary');
-  if(!section){
-    console.error('Executive Summary section not found');
-    return;
-  }
 
-  section.scrollIntoView({behavior:'smooth',block:'start'});
 
-  try{
-    refreshExecutiveSummary();
-  }catch(e){
-    console.error('Executive Summary refresh failed',e);
-  }
-}
 
-function openDashboard(event){
-  if(event)event.preventDefault();
-  setActiveNav('dashboardNav');
-  const section=document.getElementById('dashboard');
-  if(section)section.scrollIntoView({behavior:'smooth',block:'start'});
-}
 
 async function refreshExecutiveSummary(){
   const updated=document.getElementById('execUpdated');
@@ -318,3 +292,43 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
 });
 
+
+
+function setActiveNav(targetId){
+  document.querySelectorAll('.sidebar nav a').forEach(a=>a.classList.remove('active'));
+  const target=document.getElementById(targetId);
+  if(target)target.classList.add('active');
+}
+function openExecutiveSummary(event){
+  if(event)event.preventDefault();
+  document.body.classList.add('executive-mode');
+  setActiveNav('executiveSummaryNav');
+  const title=document.querySelector('.topbar h1');
+  const subtitle=document.querySelector('.topbar p');
+  if(title)title.textContent='Executive Summary';
+  if(subtitle)subtitle.textContent='Management overview of delivery health, risks, decisions and next actions.';
+  window.scrollTo({top:0,behavior:'smooth'});
+  refreshExecutiveSummary().catch(err=>console.warn('Executive Summary refresh failed',err));
+}
+function openDashboard(event){
+  if(event)event.preventDefault();
+  document.body.classList.remove('executive-mode');
+  setActiveNav('dashboardNav');
+  const title=document.querySelector('.topbar h1');
+  const subtitle=document.querySelector('.topbar p');
+  if(title)title.textContent='Project Delivery Command Center';
+  if(subtitle)subtitle.textContent='Plan, govern, track and close projects from one intelligent workspace.';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function openDashboardSection(event,sectionId){
+  if(event)event.preventDefault();
+  document.body.classList.remove('executive-mode');
+  document.querySelectorAll('.sidebar nav a').forEach(a=>a.classList.remove('active'));
+  if(event && event.currentTarget)event.currentTarget.classList.add('active');
+  const section=document.getElementById(sectionId);
+  if(section)setTimeout(()=>section.scrollIntoView({behavior:'smooth',block:'start'}),30);
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  document.body.classList.remove('executive-mode');
+});

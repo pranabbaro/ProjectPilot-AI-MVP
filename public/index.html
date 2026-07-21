@@ -19,12 +19,12 @@
     <nav>
       <a class="active" href="#dashboard" id="dashboardNav" onclick="openDashboard(event)">Dashboard</a>
       <a href="#executive-summary" id="executiveSummaryNav" onclick="openExecutiveSummary(event)">Executive Summary</a>
-      <a href="#meetings">Meetings</a>
-      <a href="#discussion">Project Discussion</a>
-      <a href="#planner">AI Project Planner</a>
-      <a href="#devops">Azure DevOps</a>
-      <a href="#mom">MOM & Actions</a>
-      <a href="#handover">Handover</a>
+      <a href="#meetings" onclick="openDashboardSection(event, 'meetings')">Meetings</a>
+      <a href="#discussion" onclick="openDashboardSection(event, 'discussion')">Project Discussion</a>
+      <a href="#planner" onclick="openDashboardSection(event, 'planner')">AI Project Planner</a>
+      <a href="#devops" onclick="openDashboardSection(event, 'devops')">Azure DevOps</a>
+      <a href="#mom" onclick="openDashboardSection(event, 'mom')">MOM & Actions</a>
+      <a href="#handover" onclick="openDashboardSection(event, 'handover')">Handover</a>
     </nav>
 
     <div class="side-footer">
@@ -46,7 +46,7 @@
     </header>
 
     <main id="dashboard">
-      <section class="hero">
+      <section class="hero dashboard-view">
         <div>
           <span class="eyebrow">ACTIVE PROJECT</span>
           <h2>Employee Service Portal</h2>
@@ -65,7 +65,7 @@
         </div>
       </section>
 
-      <section class="kpis">
+      <section class="kpis dashboard-view">
         <article><span>PROJECT STATUS</span><strong class="green">On Track</strong><small>2 actions need attention</small></article>
         <article><span>SPRINT</span><strong>Sprint 3</strong><small>8 of 12 items completed</small></article>
         <article><span>OPEN ACTIONS</span><strong>7</strong><small>3 due this week</small></article>
@@ -73,14 +73,14 @@
       </section>
 
       
-      <section class="panel executive-panel" id="executive-summary">
+      <section class="panel executive-panel executive-view" id="executive-summary">
         <div class="panel-head">
           <div>
             <span class="section-label">EXECUTIVE SUMMARY</span>
             <h3>Management Project Overview</h3>
             <p>Consolidated project status, delivery progress, risks, decisions and next actions.</p>
           </div>
-          <div class="exec-actions">
+          <div class="exec-actions"><button class="small-btn" onclick="openDashboard(event)">← Back to Dashboard</button>
             <button class="small-btn" onclick="refreshExecutiveSummary()">Refresh Summary</button>
             <button class="small-btn" onclick="window.print()">Print / Save PDF</button>
           </div>
@@ -142,7 +142,7 @@
         <div class="exec-updated">Last refreshed: <span id="execUpdated">Not refreshed yet</span></div>
       </section>
 
-<section class="grid-two" id="meetings">
+<section class="grid-two dashboard-view" id="meetings">
         <article class="panel">
           <div class="panel-head">
             <div>
@@ -190,7 +190,7 @@
         </article>
       </section>
 
-      <section class="grid-two">
+      <section class="grid-two dashboard-view">
         <article class="panel" id="devops">
           <div class="panel-head">
             <div>
@@ -221,7 +221,7 @@
         </article>
       </section>
 
-      <section class="panel planner-panel" id="planner">
+      <section class="panel planner-panel dashboard-view" id="planner">
         <div class="panel-head">
           <div>
             <span class="section-label">AI PROJECT PLANNER</span>
@@ -256,7 +256,7 @@
         </div>
       </section>
 
-      <section class="grid-two">
+      <section class="grid-two dashboard-view">
         <article class="panel" id="mom">
           <div class="panel-head">
             <div><span class="section-label">MOM & ACTIONS</span><h3>Meeting Minutes</h3></div>

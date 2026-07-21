@@ -327,7 +327,7 @@ const server=http.createServer(async(req,res)=>{
 
     if(req.method==='GET'&&u.pathname==='/api/health'){
       return send(res,200,{
-        ok:true,version:'3.4.0',
+        ok:true,version:'3.5.0',
         mode:azdoConfigured()?'AZURE_DEVOPS':'DEMO',
         environment:process.env.WEBSITE_SITE_NAME?'AZURE_APP_SERVICE':'LOCAL_OR_CODESPACES',
         azureDevOpsConfigured:azdoConfigured()
@@ -393,4 +393,4 @@ if(req.method==='POST'&&u.pathname==='/api/approve-plan'){
   }
 });
 
-server.listen(PORT,HOST,()=>console.log(`Project Command Center v3.4 running on ${HOST}:${PORT}`));
+server.listen(PORT,HOST,()=>console.log(`Project Command Center v3.5 running on ${HOST}:${PORT}`));
