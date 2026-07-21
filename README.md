@@ -1,50 +1,49 @@
-# ProjectPilot AI MVP — Phase 1
+# ProjectPilot AI MVP — Phase 2
 
-A browser-based Project Delivery Command Center for demonstrating:
-
-- Arrange Project Call
-- Project dashboard
-- Prompt to Epic → Feature → User Story → Task hierarchy
-- Project discussion intelligence
-- MOM generation
-- Handover readiness assessment
-
-## Why this version is easy to run
-
-This MVP uses only Node.js built-in modules. There are no external npm dependencies and no `npm install` step.
+Phase 2 adds the governed **Prompt → Epic → Feature → User Story → Task → PM Approval → Azure DevOps** workflow.
 
 ## Run in GitHub Codespaces
 
-1. Upload all files to a private GitHub repository.
-2. Select **Code → Codespaces → Create codespace on main**.
-3. In the Codespaces terminal run:
-
-```bash
-npm start
-```
-
-4. Open forwarded port **7071**.
-
-## Run tests
+No `npm install` is required.
 
 ```bash
 npm test
+npm start
 ```
 
-Expected output:
+Open forwarded port **7071**.
 
-```text
-All tests passed.
-```
+## Demo mode
 
-## Demo prompt
+Without Azure DevOps secrets, approval is simulated. This is intentional so the MVP remains demoable.
 
-```text
-Build an Employee Service Portal where employees can submit IT requests,
-managers can approve or reject requests, and the service team can track
-request status. Include notifications and reporting.
-```
+## Real Azure DevOps mode
 
-## Current limitation
+Add these **Codespaces secrets** (do not commit them):
 
-Phase 1 uses deterministic demo logic and does not write to Azure DevOps or create real Outlook meetings. Phase 2 will add Azure DevOps REST API integration with approval controls.
+- `AZDO_ORG` — Azure DevOps organization name
+- `AZDO_PROJECT` — target test project
+- `AZDO_PAT` — short-lived PAT with Work Items Read & Write
+- `AZDO_ITERATION` — optional, e.g. `MyProject\Sprint 1`
+- `AZDO_AREA` — optional area path
+
+Restart the Codespace/server after adding secrets.
+
+The app will display **AZURE DEVOPS • <project>** when configured.
+
+## Upgrade from Phase 1
+
+Replace these files/folders in your repository with Phase 2 versions:
+
+- `server.js`
+- `test.js`
+- `package.json`
+- `public/`
+- `.devcontainer/`
+- `README.md`
+
+Keep `.gitignore`. Do not commit `.env` or PAT values.
+
+## Safety
+
+The Azure DevOps write operation only runs after **Approve & Create in Azure DevOps** is selected. Use a test Azure DevOps project for the MVP.

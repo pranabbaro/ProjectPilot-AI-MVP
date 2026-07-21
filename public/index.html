@@ -1,82 +1,44 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ProjectPilot AI MVP</title>
-  <link rel="stylesheet" href="styles.css" />
-</head>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ProjectPilot AI</title><link rel="stylesheet" href="/styles.css"></head>
 <body>
-  <header class="topbar">
-    <div>
-      <div class="brand">ProjectPilot AI</div>
-      <div class="tagline">Plan, execute, govern, and hand over projects from one command center.</div>
-    </div>
-    <span class="badge">DEMO MODE</span>
-  </header>
+<header><div><b>ProjectPilot AI</b><span>Project Delivery Command Center</span></div><div id="mode" class="pill">Loading…</div></header>
+<main>
+<section class="hero"><div><p class="eyebrow">AI-POWERED PROJECT LIFECYCLE</p><h1>Plan. Execute. Govern. Handover.</h1><p>Turn business requirements and project discussions into governed delivery actions.</p></div>
+<div class="quick">
+<button onclick="show('meeting')">📅 Arrange Project Call</button><button onclick="show('planner')" class="primary">✨ Generate Project Plan</button>
+<button onclick="show('discussion')">📝 Add Discussion Notes</button><button onclick="generateHandover()">📦 Prepare Handover</button></div></section>
 
-  <main class="shell">
-    <section class="hero">
-      <div>
-        <h1>Project Delivery Command Center</h1>
-        <p>Arrange calls, capture project discussions, generate delivery plans, and prepare project handover documentation.</p>
-      </div>
-      <div class="hero-actions">
-        <button data-scroll="meeting">Arrange Project Call</button>
-        <button class="secondary" data-scroll="discussion">Add Discussion Notes</button>
-        <button class="secondary" data-scroll="planner">Generate Project Plan</button>
-      </div>
-    </section>
+<section class="grid stats">
+<div class="card"><small>PROJECT</small><h3 id="projectName">Employee Service Portal</h3><p>Current delivery workspace</p></div>
+<div class="card"><small>OVERALL PROGRESS</small><h2>62%</h2><div class="bar"><i style="width:62%"></i></div></div>
+<div class="card"><small>SPRINT</small><h2>Sprint 1</h2><p>Attention Required</p></div>
+<div class="card"><small>GOVERNANCE</small><h2>82%</h2><p>Compliance score</p></div>
+</section>
 
-    <section id="metrics" class="metrics"></section>
+<section class="grid two">
+<div class="card"><h3>Upcoming Meeting</h3><div id="meetingSummary"><b>Sprint Review</b><p>Today, 3:00 PM</p><p>PM, Product Owner, Technical Lead</p></div><button onclick="show('meeting')">Arrange / Update Call</button></div>
+<div class="card"><h3>Latest Project Discussion</h3><ul id="discussionList"><li>Manager approval feature approved</li><li>Security review is pending</li><li>Email notification moved to Phase 2</li></ul><button onclick="show('discussion')">Update Discussion</button></div>
+</section>
 
-    <div class="grid two">
-      <section class="card">
-        <div class="card-header"><h2>Upcoming Meeting</h2><span id="meetingStatus" class="status">Ready</span></div>
-        <div id="meetingSummary"></div>
-      </section>
-      <section class="card">
-        <div class="card-header"><h2>Latest Project Discussion</h2><span class="status attention">Needs review</span></div>
-        <div id="discussionSummary"></div>
-      </section>
-    </div>
+<section id="planner" class="panel card">
+<div class="panelhead"><div><span class="step">01</span><h2>Prompt → Azure DevOps Backlog</h2></div><span class="badge">PM APPROVAL REQUIRED</span></div>
+<p>Describe the project in normal language. ProjectPilot generates the Epic → Feature → User Story → Task hierarchy before anything is written to Azure DevOps.</p>
+<textarea id="prompt">Build an Employee Service Portal where employees can submit IT requests, managers can approve or reject requests, and the service team can track request status. Include notifications and reporting.</textarea>
+<div class="actions"><button class="primary" onclick="generatePlan()">✨ Generate Delivery Plan</button><button onclick="clearPlan()">Clear</button></div>
+<div id="planResult"></div>
+</section>
 
-    <section id="meeting" class="card section-gap">
-      <div class="card-header"><h2>Arrange Project Call</h2><span class="eyebrow">Calendar simulation</span></div>
-      <div class="form-grid">
-        <label>Meeting title<input id="meetingTitle" value="Employee Service Portal – Project Discussion" /></label>
-        <label>Date<input id="meetingDate" value="Tomorrow" /></label>
-        <label>Time<input id="meetingTime" value="11:00 AM" /></label>
-        <label>Attendees<input id="meetingAttendees" value="Project Manager, Product Owner, Technical Lead, Scrum Master" /></label>
-      </div>
-      <button id="arrangeMeeting">Arrange Call</button>
-      <div id="meetingResult" class="result hidden"></div>
-    </section>
+<section id="meeting" class="panel card hidden"><div class="panelhead"><div><span class="step">02</span><h2>Arrange Project Call</h2></div></div>
+<div class="formrow"><input id="mtitle" value="Employee Service Portal - Project Discussion"><input id="mwhen" value="Tomorrow, 11:00 AM"></div>
+<input id="mattendees" value="PM, Product Owner, Technical Lead, Scrum Master">
+<div class="actions"><button class="primary" onclick="arrangeMeeting()">Prepare Meeting</button></div><div id="meetingResult"></div></section>
 
-    <section id="planner" class="card section-gap">
-      <div class="card-header"><h2>Prompt to Project Plan</h2><span class="eyebrow">Epic → Feature → Story → Task</span></div>
-      <textarea id="planPrompt" rows="5">Build an Employee Service Portal where employees can submit IT requests, managers can approve or reject requests, and the service team can track request status. Include notifications and reporting.</textarea>
-      <div class="button-row"><button id="generatePlan">Generate Plan</button><button id="approvePlan" class="secondary" disabled>Approve Demo Plan</button></div>
-      <div id="planResult" class="result hidden"></div>
-    </section>
+<section id="discussion" class="panel card hidden"><div class="panelhead"><div><span class="step">03</span><h2>Project Discussion Intelligence</h2></div></div>
+<p>Paste Copilot meeting notes here for the MVP.</p>
+<textarea id="notes">The team approved the manager approval workflow. Rahul will complete the approval UI by Friday. Priya will develop the approval API in Sprint 1. Security review remains pending and may delay testing. Email notification is deferred to Phase 2.</textarea>
+<div class="actions"><button class="primary" onclick="analyseNotes()">Analyse Notes</button><button onclick="generateMom()">Generate MOM</button></div><div id="discussionResult"></div></section>
 
-    <section id="discussion" class="card section-gap">
-      <div class="card-header"><h2>Project Discussion Intelligence</h2><span class="eyebrow">Paste Copilot notes</span></div>
-      <textarea id="notes" rows="7">The team approved the manager approval workflow.
-Rahul will complete the approval UI by Friday.
-Priya will develop the approval API during Sprint 1.
-The security review is pending and may delay testing.
-The email notification feature will be moved to Phase 2.</textarea>
-      <div class="button-row"><button id="analyzeNotes">Analyze Notes</button><button id="generateMom">Generate MOM</button></div>
-      <div id="discussionResult" class="result hidden"></div>
-    </section>
-
-    <section class="card section-gap">
-      <div class="card-header"><h2>Project Closure</h2><span class="eyebrow">Handover readiness</span></div>
-      <button id="generateHandover">Generate Handover Assessment</button>
-      <div id="handoverResult" class="result hidden"></div>
-    </section>
-  </main>
-  <script src="app.js"></script>
-</body>
-</html>
+<section id="handover" class="panel card hidden"><div class="panelhead"><div><span class="step">04</span><h2>Project Handover</h2></div></div><div id="handoverResult"></div></section>
+</main>
+<script src="/app.js"></script></body></html>

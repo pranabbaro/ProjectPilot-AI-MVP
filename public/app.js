@@ -1,85 +1,17 @@
-const $ = id => document.getElementById(id);
-let currentPlan = null;
 
-async function api(path, options = {}) {
-  const response = await fetch(path, {headers:{'Content-Type':'application/json'}, ...options});
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload.error || 'Request failed');
-  return payload;
-}
-
-function show(el, html, isError=false) {
-  el.classList.remove('hidden','error');
-  if (isError) el.classList.add('error');
-  el.innerHTML = html;
-}
-
-function list(items) {
-  return `<ul class="summary-list">${items.map(x => `<li>${x}</li>`).join('')}</ul>`;
-}
-
-async function loadDashboard() {
-  const data = await api('/api/dashboard');
-  const p = data.project;
-  $('metrics').innerHTML = [
-    ['Progress',`${p.progress}%`],['Features',p.features],['Stories',p.stories],['Tasks',p.tasks],['Blocked',p.blocked],['Compliance',`${p.compliance}%`]
-  ].map(([label,value])=>`<div class="metric"><div class="value">${value}</div><div class="label">${label}</div></div>`).join('');
-
-  $('meetingSummary').innerHTML = `<h3>${data.meeting.title}</h3><p><strong>${data.meeting.date}, ${data.meeting.time}</strong></p><div>${data.meeting.attendees.map(x=>`<span class="pill">${x}</span>`).join('')}</div><h4>Agenda</h4>${list(data.meeting.agenda)}`;
-  $('discussionSummary').innerHTML = `<h4>Decisions</h4>${list(data.discussion.decisions)}<h4>Actions</h4>${list(data.discussion.actions.map(a=>`${a.title} — ${a.owner} (${a.target})`))}<h4>Risks</h4>${list(data.discussion.risks)}`;
-}
-
-document.querySelectorAll('[data-scroll]').forEach(btn => btn.addEventListener('click',()=>$(btn.dataset.scroll).scrollIntoView({behavior:'smooth'})));
-
-$('arrangeMeeting').addEventListener('click', async () => {
-  try {
-    const result = await api('/api/meeting',{method:'POST',body:JSON.stringify({
-      title:$('meetingTitle').value,date:$('meetingDate').value,time:$('meetingTime').value,
-      attendees:$('meetingAttendees').value.split(',').map(x=>x.trim()).filter(Boolean)
-    })});
-    show($('meetingResult'),`<div class="callout"><strong>${result.message}</strong><br>${result.meeting.title}<br>${result.meeting.date}, ${result.meeting.time}</div>`);
-    loadDashboard();
-  } catch(e){show($('meetingResult'),e.message,true)}
-});
-
-function renderPlan(plan) {
-  return `<div class="callout"><strong>${plan.projectName}</strong><br>${plan.estimatedDuration} · ${plan.estimatedSprints} sprints · ${plan.complexity} complexity</div>
-  <div class="tree"><ul><li class="epic">Epic: ${plan.epic}<ul>${plan.features.map(f=>`<li class="feature">Feature: ${f.name}<ul>${f.stories.map(s=>`<li>User Story: ${s.name}<ul>${s.tasks.map(t=>`<li>Task: ${t}</li>`).join('')}</ul></li>`).join('')}</ul></li>`).join('')}</ul></li></ul></div>`;
-}
-
-$('generatePlan').addEventListener('click', async () => {
-  try {
-    currentPlan = await api('/api/plan',{method:'POST',body:JSON.stringify({prompt:$('planPrompt').value})});
-    show($('planResult'),renderPlan(currentPlan));
-    $('approvePlan').disabled = false;
-  } catch(e){show($('planResult'),e.message,true)}
-});
-
-$('approvePlan').addEventListener('click',()=>{
-  if (!currentPlan) return;
-  show($('planResult'),renderPlan(currentPlan)+`<div class="callout"><strong>Approved in demo mode.</strong><br>The next phase will connect this approval to Azure DevOps REST APIs.</div>`);
-});
-
-$('analyzeNotes').addEventListener('click', async () => {
-  try {
-    const r = await api('/api/discussion',{method:'POST',body:JSON.stringify({notes:$('notes').value})});
-    show($('discussionResult'),`<h3>Discussion Updated</h3><h4>Decisions</h4>${list(r.decisions)}<h4>Actions</h4>${list(r.actions.map(a=>`${a.title} — ${a.owner} (${a.target})`))}<h4>Risks</h4>${list(r.risks)}<h4>Deferred</h4>${list(r.deferred)}<h4>Proposed DevOps Changes</h4>${list(r.proposedDevOpsChanges)}<div class="callout"><strong>No external changes were made.</strong> Human approval remains required.</div>`);
-    loadDashboard();
-  } catch(e){show($('discussionResult'),e.message,true)}
-});
-
-$('generateMom').addEventListener('click', async () => {
-  try {
-    const r = await api('/api/mom',{method:'POST'});
-    show($('discussionResult'),`<h3>${r.title}</h3><p>${r.objective}</p><h4>Decisions</h4>${list(r.decisions)}<h4>Actions</h4>${list(r.actions.map(a=>`${a.title} — ${a.owner} (${a.target})`))}<h4>Risks</h4>${list(r.risks)}<h4>Next Steps</h4>${list(r.nextSteps)}`);
-  } catch(e){show($('discussionResult'),e.message,true)}
-});
-
-$('generateHandover').addEventListener('click', async () => {
-  try {
-    const r = await api('/api/handover',{method:'POST'});
-    show($('handoverResult'),`<h3>${r.project}</h3><div class="callout"><strong>Handover status: ${r.readiness}</strong></div><h4>Document Sections</h4>${list(r.sections)}<h4>Remaining Gaps</h4>${list(r.gaps.length?r.gaps:['No critical gaps detected'])}`);
-  } catch(e){show($('handoverResult'),e.message,true)}
-});
-
-loadDashboard().catch(err=>alert(err.message));
+let currentPlan=null;
+function show(id){document.querySelectorAll('.panel').forEach(x=>x.classList.add('hidden'));document.getElementById(id).classList.remove('hidden');document.getElementById(id).scrollIntoView({behavior:'smooth'});}
+async function api(url,options={}){const r=await fetch(url,{headers:{'Content-Type':'application/json'},...options});const j=await r.json();if(!r.ok)throw new Error(j.error||'Request failed');return j;}
+async function init(){const c=await api('/api/config');document.getElementById('mode').textContent=c.azureDevOpsConfigured?`AZURE DEVOPS • ${c.project}`:'DEMO MODE';}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
+function renderPlan(p){let h=`<div class="resultbox"><h3>${esc(p.projectName)}</h3><p>${esc(p.summary)} • Recommended sprints: ${p.recommendedSprints}</p><div class="tree"><div class="node"><span class="type">Epic</span><b>${esc(p.epic.title)}</b></div>`;
+for(const f of p.epic.features){h+=`<div class="node l1"><span class="type">Feature</span><b>${esc(f.title)}</b></div>`;for(const s of f.stories){h+=`<div class="node l2"><span class="type">User Story</span>${esc(s.title)}<br><small>Acceptance: ${esc(s.acceptanceCriteria)}</small></div>`;for(const t of s.tasks)h+=`<div class="node l3"><span class="type">Task</span>${esc(t.title)}</div>`;}}
+h+=`</div><div class="warn"><b>No DevOps changes made yet.</b> Review the hierarchy before approval.</div><div class="actions"><button class="primary" onclick="approvePlan()">✓ Approve & Create in Azure DevOps</button><button onclick="clearPlan()">Reject / Clear</button></div></div>`;return h;}
+async function generatePlan(){const out=document.getElementById('planResult');out.innerHTML='<p>Generating project hierarchy…</p>';try{currentPlan=await api('/api/plan',{method:'POST',body:JSON.stringify({prompt:document.getElementById('prompt').value})});out.innerHTML=renderPlan(currentPlan);}catch(e){out.innerHTML=`<div class="warn">${esc(e.message)}</div>`;}}
+async function approvePlan(){if(!currentPlan)return;const out=document.getElementById('planResult');out.insertAdjacentHTML('beforeend','<p>Applying approved hierarchy…</p>');try{const r=await api('/api/approve-plan',{method:'POST',body:JSON.stringify({plan:currentPlan})});let rows=r.created.slice(0,100).map(x=>`<tr><td>${esc(x.type)}</td><td>${esc(x.id)}</td><td>${esc(x.title)}</td></tr>`).join('');out.innerHTML+=`<div class="success"><b>${esc(r.message)}</b><br>Created/simulated items: ${r.created.length}</div><div class="resultbox"><table width="100%"><tr><th align="left">Type</th><th align="left">ID</th><th align="left">Title</th></tr>${rows}</table></div>`;}catch(e){out.innerHTML+=`<div class="warn"><b>Creation failed:</b> ${esc(e.message)}</div>`;}}
+function clearPlan(){currentPlan=null;document.getElementById('planResult').innerHTML='';}
+async function arrangeMeeting(){const r=await api('/api/meeting',{method:'POST',body:JSON.stringify({title:mtitle.value,when:mwhen.value,attendees:mattendees.value})});document.getElementById('meetingSummary').innerHTML=`<b>${esc(r.meeting.title)}</b><p>${esc(r.meeting.when)}</p><p>${esc(r.meeting.attendees)}</p>`;document.getElementById('meetingResult').innerHTML=`<div class="success">Meeting prepared.</div><div class="resultbox"><b>AI-prepared agenda</b><ol>${r.agenda.map(x=>`<li>${esc(x)}</li>`).join('')}</ol></div>`;}
+async function analyseNotes(){const r=await api('/api/discussion',{method:'POST',body:JSON.stringify({notes:notes.value})});const all=[...r.decisions,...r.actions,...r.risks];document.getElementById('discussionList').innerHTML=all.slice(0,6).map(x=>`<li>${esc(x)}</li>`).join('');discussionResult.innerHTML=`<div class="resultbox"><h3>Decisions</h3><ul>${r.decisions.map(x=>`<li>${esc(x)}</li>`).join('')||'<li>None detected</li>'}</ul><h3>Actions</h3><ul>${r.actions.map(x=>`<li>${esc(x)}</li>`).join('')||'<li>None detected</li>'}</ul><h3>Risks</h3><ul>${r.risks.map(x=>`<li>${esc(x)}</li>`).join('')||'<li>None detected</li>'}</ul><div class="warn">Recommended DevOps changes require PM approval.</div></div>`;}
+async function generateMom(){const r=await api('/api/mom',{method:'POST',body:JSON.stringify({notes:notes.value})});discussionResult.innerHTML=`<div class="resultbox"><h3>${esc(r.title)}</h3><pre>${esc(r.content)}</pre></div>`;}
+async function generateHandover(){show('handover');const r=await api('/api/handover',{method:'POST',body:'{}'});handoverResult.innerHTML=`<div class="warn"><b>Handover Status: ${esc(r.status)}</b><ul>${r.blockers.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div><div class="resultbox"><pre>${esc(r.document)}</pre></div>`;}
+init().catch(console.error);

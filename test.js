@@ -1,19 +1,5 @@
-const assert = require('assert');
-const { generatePlan, analyzeNotes, generateMom, generateHandover } = require('./server');
-const fs = require('fs');
-const path = require('path');
 
-const plan = generatePlan('Build an Employee Service Portal where employees submit requests and managers approve them. Include notifications and reporting.');
-assert.strictEqual(plan.epic, 'Employee Service Portal');
-assert(plan.features.some(f => f.name === 'Manager Approval Workflow'));
-assert(plan.features.some(f => f.stories.some(s => s.name === 'Allow managers to approve requests')));
-
-const notes = analyzeNotes('The team approved the workflow.\nRahul will complete the approval UI by Friday.\nThe security review is pending.');
-assert(notes.decisions.length === 1);
-assert(notes.actions.length === 1);
-assert(notes.risks.length === 1);
-
-const state = JSON.parse(fs.readFileSync(path.join(__dirname,'data','state.json'),'utf8'));
-assert(generateMom(state).title.includes('Minutes of Meeting'));
-assert(['Ready','Conditionally Ready'].includes(generateHandover(state).readiness));
-console.log('All tests passed.');
+const {spawn}=require('child_process');
+const http=require('http');
+function req(path,method='GET',body=null){return new Promise((resolve,reject)=>{const data=body?JSON.stringify(body):'';const r=http.request({hostname:'127.0.0.1',port:7071,path,method,headers:{'Content-Type':'application/json','Content-Length':Buffer.byteLength(data)}},res=>{let o='';res.on('data',c=>o+=c);res.on('end',()=>resolve({status:res.statusCode,body:o}));});r.on('error',reject);if(data)r.write(data);r.end();});}
+(async()=>{const p=spawn(process.execPath,['server.js'],{env:{...process.env,PORT:'7071'},stdio:['ignore','pipe','pipe']});try{await new Promise(r=>setTimeout(r,500));let h=await req('/api/health');if(h.status!==200)throw new Error('health failed');let plan=await req('/api/plan','POST',{prompt:'Build an Employee Service Portal where employees submit IT requests and managers approve them'});if(plan.status!==200||!plan.body.includes('Manager Approval Workflow'))throw new Error('plan failed');let pj=JSON.parse(plan.body);let ap=await req('/api/approve-plan','POST',{plan:pj});if(ap.status!==200||!ap.body.includes('SIMULATED'))throw new Error('approval failed');let m=await req('/api/mom','POST',{notes:'Manager workflow approved.'});if(m.status!==200)throw new Error('mom failed');console.log('All Phase 2 tests passed.');}finally{p.kill();}})().catch(e=>{console.error(e);process.exit(1);});
