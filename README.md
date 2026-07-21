@@ -1,35 +1,55 @@
-# ProjectPilot AI MVP — Phase 2.2
+# Project Command Center v2.5
 
-Azure App Service + Moveworks ready.
+Management-ready AI-powered project delivery command center.
 
-## Test
+## Azure App Service ready
+
+The application listens on:
+
+```text
+process.env.PORT || 7071
+```
+
+and binds to `0.0.0.0`, so it works on Azure App Service and GitHub Codespaces.
+
+## Existing integration endpoints remain unchanged
+
+- `GET /api/health`
+- `POST /api/ai-plan`
+- `POST /api/approve-plan`
+
+This means the existing Moveworks HTTP Action does not need to change.
+
+## Run tests
+
 ```bash
 npm test
 ```
-Expected: `All Phase 2.2 tests passed.`
+
+Expected result:
+
+```text
+All Project Command Center v2.5 tests passed.
+```
 
 ## Start
+
 ```bash
 npm start
 ```
 
-## Azure App Service
-The server uses `process.env.PORT || 7071` and binds to `0.0.0.0`, so it is ready for Linux App Service.
+## Management UI
 
-Health: `GET /api/health`
+Public-facing wording has been changed to **Project Command Center**.
 
-Moveworks: `POST /api/ai-plan`
+The UI does not display:
+- Hackathon Edition
+- developer/test wording
+- internal implementation details
 
-Request body:
-```json
-{"project_requirement":"Create a project plan..."}
-```
-
-Data Mapper:
-```text
-{"project_requirement": project_requirement}
-```
-
-All plans stay `DRAFT` until `/api/approve-plan` is called.
-
-For real Azure DevOps creation, configure App Service environment variables: `AZDO_ORG`, `AZDO_PROJECT`, `AZDO_PAT`.
+It retains:
+- AI project requirement entry
+- generated project-plan visualization
+- Features, User Stories, Tasks and Sprint metrics
+- human-in-the-loop governance messaging
+- management-friendly enterprise presentation

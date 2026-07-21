@@ -1,5 +1,7 @@
 {
-  "name": "ProjectPilot AI",
+  "name": "Project Command Center",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:1-20-bookworm",
-  "forwardPorts": [7071]
+  "forwardPorts": [
+    7071
+  ]
 }

@@ -1,1 +1,18 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ProjectPilot AI</title><link rel="stylesheet" href="/styles.css"></head><body><main><span class="badge">Phase 2.2</span><h1>ProjectPilot AI</h1><p>Azure App Service & Moveworks-ready Project Planning API.</p><h2>Health</h2><pre id="health">Checking...</pre><h2>Test Project Planner</h2><textarea id="requirement">Create a cloud migration project for migrating 100 VMware VMs to Azure including assessment, landing zone, connectivity, security, migration waves, testing and handover.</textarea><button onclick="generatePlan()">Generate Plan</button><h2>Draft Plan</h2><pre id="output"></pre></main><script src="/app.js"></script></body></html>
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Project Command Center</title><link rel="stylesheet" href="/styles.css"></head><body>
+<header><div class="brand"><div class="logo">✦</div><div><b>Project Command Center</b><small>AI-Powered Project Delivery Intelligence</small></div></div><div class="status"><i id="dot"></i><span id="status">Checking...</span></div></header>
+<main>
+<section class="hero"><div class="tag">Enterprise Project Delivery</div><h1>From project idea to delivery plan in seconds.</h1><p>Describe your project requirement in natural language. Project Command Center turns it into a governed delivery structure with Features, User Stories, Tasks, sprint guidance, dependencies and risks.</p>
+<div class="prompt"><label>What project would you like to plan?</label><textarea id="q">Create a cloud migration project for migrating 100 VMware VMs to Azure including assessment, landing zone, connectivity, security, migration waves, testing and handover.</textarea>
+<div class="row"><div class="chips"><button data-p="Create an Employee Service Portal with employee requests, manager approvals, notifications, reporting, testing and operational handover.">Employee Portal</button><button data-p="Create a project plan for implementing SAP HANA disaster recovery on Azure using HANA System Replication, including infrastructure preparation, replication, testing, failover and handover.">SAP HANA DR</button><button data-p="Create a cybersecurity improvement project covering identity hardening, endpoint protection, security monitoring, incident response and operational handover.">Cybersecurity</button></div><button class="primary" id="go" onclick="generate()">✦ Generate Project Plan</button></div>
+</div></section>
+
+<section id="metrics" class="metrics hidden"><div><span>FEATURES</span><b id="fc">0</b></div><div><span>USER STORIES</span><b id="sc">0</b></div><div><span>TASKS</span><b id="tc">0</b></div><div><span>SPRINTS</span><b id="sp">0</b></div></section>
+
+<section id="plan" class="plan hidden"><div class="planhead"><div><small>AI GENERATED PROJECT PLAN</small><h2 id="pn"></h2><p id="po"></p></div><em>DRAFT • PM APPROVAL REQUIRED</em></div>
+<div class="meta"><div><span>Estimated Sprints</span><b id="es"></b></div><div><span>Risks</span><b id="rc"></b></div><div><span>Source</span><b id="src"></b></div></div>
+<div id="tree"></div>
+<div id="risks" class="risks hidden"><h3>Risks & Considerations</h3><div id="risklist"></div></div>
+<div class="approval"><div><b>Human-in-the-loop governance</b><span>No Azure DevOps changes are made until the Project Manager approves the plan.</span></div><button disabled>Approve & Create in Azure DevOps</button></div>
+</section>
+<section class="powered"><b>Project Command Center</b><span>Intelligent planning • Governed execution • Human approval</span></section>
+</main><script src="/app.js"></script></body></html>
