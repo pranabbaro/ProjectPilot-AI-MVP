@@ -1,55 +1,26 @@
-# Project Command Center v2.5
+# Project Command Center v3.0 – Full Dashboard
 
-Management-ready AI-powered project delivery command center.
+Restores the full Project Delivery Command Center experience while preserving the current Azure App Service and Moveworks integration.
 
-## Azure App Service ready
+Includes:
 
-The application listens on:
+- Executive dashboard
+- Project status, sprint, actions and governance cards
+- Meeting schedule and simple meeting creation
+- Project discussion summary
+- Azure DevOps work item view
+- Delivery insights
+- AI Project Planner
+- MOM generation
+- Project handover section
+- Existing API endpoints unchanged:
+  - GET /api/health
+  - POST /api/ai-plan
+  - POST /api/approve-plan
 
-```text
-process.env.PORT || 7071
-```
-
-and binds to `0.0.0.0`, so it works on Azure App Service and GitHub Codespaces.
-
-## Existing integration endpoints remain unchanged
-
-- `GET /api/health`
-- `POST /api/ai-plan`
-- `POST /api/approve-plan`
-
-This means the existing Moveworks HTTP Action does not need to change.
-
-## Run tests
+Run:
 
 ```bash
 npm test
-```
-
-Expected result:
-
-```text
-All Project Command Center v2.5 tests passed.
-```
-
-## Start
-
-```bash
 npm start
 ```
-
-## Management UI
-
-Public-facing wording has been changed to **Project Command Center**.
-
-The UI does not display:
-- Hackathon Edition
-- developer/test wording
-- internal implementation details
-
-It retains:
-- AI project requirement entry
-- generated project-plan visualization
-- Features, User Stories, Tasks and Sprint metrics
-- human-in-the-loop governance messaging
-- management-friendly enterprise presentation

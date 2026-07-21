@@ -1,18 +1,211 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Project Command Center</title><link rel="stylesheet" href="/styles.css"></head><body>
-<header><div class="brand"><div class="logo">✦</div><div><b>Project Command Center</b><small>AI-Powered Project Delivery Intelligence</small></div></div><div class="status"><i id="dot"></i><span id="status">Checking...</span></div></header>
-<main>
-<section class="hero"><div class="tag">Enterprise Project Delivery</div><h1>From project idea to delivery plan in seconds.</h1><p>Describe your project requirement in natural language. Project Command Center turns it into a governed delivery structure with Features, User Stories, Tasks, sprint guidance, dependencies and risks.</p>
-<div class="prompt"><label>What project would you like to plan?</label><textarea id="q">Create a cloud migration project for migrating 100 VMware VMs to Azure including assessment, landing zone, connectivity, security, migration waves, testing and handover.</textarea>
-<div class="row"><div class="chips"><button data-p="Create an Employee Service Portal with employee requests, manager approvals, notifications, reporting, testing and operational handover.">Employee Portal</button><button data-p="Create a project plan for implementing SAP HANA disaster recovery on Azure using HANA System Replication, including infrastructure preparation, replication, testing, failover and handover.">SAP HANA DR</button><button data-p="Create a cybersecurity improvement project covering identity hardening, endpoint protection, security monitoring, incident response and operational handover.">Cybersecurity</button></div><button class="primary" id="go" onclick="generate()">✦ Generate Project Plan</button></div>
-</div></section>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Project Command Center</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">✦</div>
+      <div>
+        <div class="brand-title">Project Command Center</div>
+        <div class="brand-sub">AI-Powered Project Delivery</div>
+      </div>
+    </div>
 
-<section id="metrics" class="metrics hidden"><div><span>FEATURES</span><b id="fc">0</b></div><div><span>USER STORIES</span><b id="sc">0</b></div><div><span>TASKS</span><b id="tc">0</b></div><div><span>SPRINTS</span><b id="sp">0</b></div></section>
+    <nav>
+      <a class="active" href="#dashboard">Dashboard</a>
+      <a href="#meetings">Meetings</a>
+      <a href="#discussion">Project Discussion</a>
+      <a href="#planner">AI Project Planner</a>
+      <a href="#devops">Azure DevOps</a>
+      <a href="#mom">MOM & Actions</a>
+      <a href="#handover">Handover</a>
+    </nav>
 
-<section id="plan" class="plan hidden"><div class="planhead"><div><small>AI GENERATED PROJECT PLAN</small><h2 id="pn"></h2><p id="po"></p></div><em>DRAFT • PM APPROVAL REQUIRED</em></div>
-<div class="meta"><div><span>Estimated Sprints</span><b id="es"></b></div><div><span>Risks</span><b id="rc"></b></div><div><span>Source</span><b id="src"></b></div></div>
-<div id="tree"></div>
-<div id="risks" class="risks hidden"><h3>Risks & Considerations</h3><div id="risklist"></div></div>
-<div class="approval"><div><b>Human-in-the-loop governance</b><span>No Azure DevOps changes are made until the Project Manager approves the plan.</span></div><button disabled>Approve & Create in Azure DevOps</button></div>
-</section>
-<section class="powered"><b>Project Command Center</b><span>Intelligent planning • Governed execution • Human approval</span></section>
-</main><script src="/app.js"></script></body></html>
+    <div class="side-footer">
+      <span id="sideDot"></span>
+      <span id="sideStatus">Checking service...</span>
+    </div>
+  </aside>
+
+  <div class="page">
+    <header class="topbar">
+      <div>
+        <h1>Project Delivery Command Center</h1>
+        <p>Plan, govern, track and close projects from one intelligent workspace.</p>
+      </div>
+      <div class="header-actions">
+        <button class="ghost-btn">Export Summary</button>
+        <button class="primary-btn" onclick="scrollToPlanner()">✦ Create Project Plan</button>
+      </div>
+    </header>
+
+    <main id="dashboard">
+      <section class="hero">
+        <div>
+          <span class="eyebrow">ACTIVE PROJECT</span>
+          <h2>Employee Service Portal</h2>
+          <p>Digital employee request and manager approval platform with automated notifications, reporting and operational handover.</p>
+          <div class="hero-meta">
+            <span>Owner: Project Management Office</span>
+            <span>Current Sprint: Sprint 3</span>
+            <span>Target Completion: 30 Sep 2026</span>
+          </div>
+        </div>
+        <div class="health-card">
+          <span>Overall Project Health</span>
+          <strong>On Track</strong>
+          <div class="progress"><i style="width:72%"></i></div>
+          <small>72% overall completion</small>
+        </div>
+      </section>
+
+      <section class="kpis">
+        <article><span>PROJECT STATUS</span><strong class="green">On Track</strong><small>2 actions need attention</small></article>
+        <article><span>SPRINT</span><strong>Sprint 3</strong><small>8 of 12 items completed</small></article>
+        <article><span>OPEN ACTIONS</span><strong>7</strong><small>3 due this week</small></article>
+        <article><span>GOVERNANCE</span><strong>94%</strong><small>Compliant delivery score</small></article>
+      </section>
+
+      <section class="grid-two" id="meetings">
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <span class="section-label">MEETING SCHEDULE</span>
+              <h3>Upcoming Project Meetings</h3>
+            </div>
+            <button class="small-btn" onclick="openScheduleForm()">+ Arrange Call</button>
+          </div>
+          <div id="meetingList" class="meeting-list">
+            <div class="meeting-item">
+              <div class="date-box"><b>22</b><span>JUL</span></div>
+              <div><strong>Weekly Project Sync</strong><p>10:30 AM • Microsoft Teams</p></div>
+              <span class="meeting-tag">Tomorrow</span>
+            </div>
+            <div class="meeting-item">
+              <div class="date-box"><b>24</b><span>JUL</span></div>
+              <div><strong>Sprint Review & Demo</strong><p>3:00 PM • Microsoft Teams</p></div>
+              <span class="meeting-tag neutral">Sprint 3</span>
+            </div>
+          </div>
+          <div id="scheduleForm" class="schedule-form hidden">
+            <input id="meetingTitle" placeholder="Meeting title">
+            <input id="meetingDate" type="date">
+            <input id="meetingTime" type="time">
+            <button class="primary-btn small" onclick="addMeeting()">Add Meeting</button>
+          </div>
+        </article>
+
+        <article class="panel" id="discussion">
+          <div class="panel-head">
+            <div>
+              <span class="section-label">PROJECT DISCUSSION</span>
+              <h3>Latest Discussion Summary</h3>
+            </div>
+            <span class="ai-pill">AI summarized</span>
+          </div>
+          <textarea id="discussionText" class="discussion-box">Manager approval workflow requires escalation after 48 hours. Reporting dashboard should show pending, approved and rejected requests. Security team requested role-based access validation before production.</textarea>
+          <button class="small-btn" onclick="summarizeDiscussion()">Update Discussion</button>
+          <div id="discussionOutput" class="discussion-output">
+            <div><b>Decision</b><span>48-hour escalation will be included in the approval workflow.</span></div>
+            <div><b>Action</b><span>Validate RBAC design with Security team.</span></div>
+            <div><b>Risk</b><span>Reporting scope may affect Sprint 4 timeline.</span></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="grid-two">
+        <article class="panel" id="devops">
+          <div class="panel-head">
+            <div>
+              <span class="section-label">AZURE DEVOPS</span>
+              <h3>Delivery Work Items</h3>
+            </div>
+            <span class="status-badge">Connected</span>
+          </div>
+          <div class="work-items">
+            <div class="work-row"><span class="type epic">EPIC</span><div><b>Employee Service Portal</b><small>Overall product delivery</small></div><span>Active</span></div>
+            <div class="work-row"><span class="type feature">FEATURE</span><div><b>Manager Approval Workflow</b><small>Approval, rejection and escalation</small></div><span>In Progress</span></div>
+            <div class="work-row"><span class="type story">STORY</span><div><b>Allow managers to approve requests</b><small>Sprint 3</small></div><span>Committed</span></div>
+            <div class="work-row"><span class="type task">TASK</span><div><b>Design approval screen</b><small>Assigned to UX team</small></div><span>Active</span></div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <span class="section-label">DELIVERY INSIGHTS</span>
+              <h3>Project Attention Areas</h3>
+            </div>
+          </div>
+          <div class="insight-list">
+            <div class="insight warning"><b>3 overdue actions</b><span>Follow-up needed before next sprint review.</span></div>
+            <div class="insight info"><b>1 scope change</b><span>Reporting dashboard requirements expanded.</span></div>
+            <div class="insight success"><b>Security validation planned</b><span>RBAC review scheduled before production readiness.</span></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel planner-panel" id="planner">
+        <div class="panel-head">
+          <div>
+            <span class="section-label">AI PROJECT PLANNER</span>
+            <h3>Generate a complete project delivery plan</h3>
+            <p>Describe your requirement and generate a structured project hierarchy.</p>
+          </div>
+          <span class="status-badge" id="apiStatus">Checking API</span>
+        </div>
+
+        <textarea id="requirement" class="planner-input">Create a cloud migration project for migrating 100 VMware VMs to Azure including assessment, landing zone, connectivity, security, migration waves, testing and handover.</textarea>
+        <div class="planner-actions">
+          <div class="quick-prompts">
+            <button data-prompt="Create an Employee Service Portal with employee requests, manager approvals, notifications, reporting, testing and operational handover.">Employee Portal</button>
+            <button data-prompt="Create a project plan for SAP HANA disaster recovery on Azure using HANA System Replication, testing, failover and handover.">SAP HANA DR</button>
+            <button data-prompt="Create a cybersecurity improvement project covering identity hardening, endpoint protection, monitoring, incident response and handover.">Cybersecurity</button>
+          </div>
+          <button id="generateBtn" class="primary-btn" onclick="generatePlan()">✦ Generate Plan</button>
+        </div>
+
+        <div id="planOutput" class="plan-output hidden">
+          <div class="plan-summary">
+            <div><span>Project</span><strong id="projectName"></strong></div>
+            <div><span>Estimated Sprints</span><strong id="sprints"></strong></div>
+            <div><span>Status</span><strong>DRAFT</strong></div>
+          </div>
+          <div id="hierarchy"></div>
+          <div class="approval-note">Human approval required before any Azure DevOps changes are created.</div>
+        </div>
+      </section>
+
+      <section class="grid-two">
+        <article class="panel" id="mom">
+          <div class="panel-head">
+            <div><span class="section-label">MOM & ACTIONS</span><h3>Meeting Minutes</h3></div>
+            <button class="small-btn" onclick="generateMOM()">Generate MOM</button>
+          </div>
+          <div id="momContent" class="doc-box">
+            <b>Latest MOM</b>
+            <p>No MOM generated in this session.</p>
+          </div>
+        </article>
+
+        <article class="panel" id="handover">
+          <div class="panel-head">
+            <div><span class="section-label">HANDOVER</span><h3>Project Closure & Handover</h3></div>
+            <button class="small-btn" onclick="generateHandover()">Generate Handover</button>
+          </div>
+          <div id="handoverContent" class="doc-box">
+            <b>Handover readiness</b>
+            <p>Architecture summary, operational procedures, known issues, risks, lessons learned and sign-off will be generated here.</p>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
