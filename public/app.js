@@ -189,3 +189,63 @@ async function createDiscussionItem(serialized,itemType){
     alert(`Unable to create Azure DevOps item: ${e.message}`);
   }
 }
+
+async function refreshExecutiveSummary(){
+  execUpdated.textContent='Refreshing...';
+
+  // Incorporate latest discussion analysis if available.
+  if(latestDiscussionAnalysis){
+    const risks=(latestDiscussionAnalysis.risks||[]).slice(0,3);
+    if(risks.length){
+      execRisks.innerHTML=risks.map(r=>`<div class="exec-line risk-line"><b>Discussion Risk</b><span>${esc(r.title)}</span></div>`).join('');
+    }
+
+    const decisions=[
+      ...(latestDiscussionAnalysis.decisions||[]).map(x=>({kind:'Decision',title:x.title})),
+      ...(latestDiscussionAnalysis.actions||[]).map(x=>({kind:'PMO Action',title:x.title}))
+    ].slice(0,4);
+
+    if(decisions.length){
+      execDecisions.innerHTML=decisions.map(x=>`<div class="exec-line"><b>${esc(x.kind)}</b><span>${esc(x.title)}</span></div>`).join('');
+    }
+
+    const actionCount=(latestDiscussionAnalysis.actions||[]).length;
+    if(actionCount){
+      execActions.textContent=String(actionCount);
+      execActionNote.textContent='Actions identified from latest discussion';
+    }
+  }
+
+  // Incorporate live Azure DevOps if configured.
+  try{
+    const status=await api('/api/devops/status');
+    if(status.configured){
+      const data=await api('/api/devops/work-items');
+      const items=data.items||[];
+      const counts={};
+      items.forEach(x=>counts[x.type]=(counts[x.type]||0)+1);
+      const active=items.filter(x=>!['Closed','Done','Resolved','Removed'].includes(x.state)).length;
+      execDevOps.innerHTML=`
+        <div class="exec-devops-row"><span>Recent work items</span><b>${items.length}</b></div>
+        <div class="exec-devops-row"><span>Active / open</span><b>${active}</b></div>
+        <div class="exec-devops-row"><span>Epics</span><b>${counts['Epic']||0}</b></div>
+        <div class="exec-devops-row"><span>Features</span><b>${counts['Feature']||0}</b></div>
+        <div class="exec-devops-row"><span>User Stories / PBIs</span><b>${(counts['User Story']||0)+(counts['Product Backlog Item']||0)}</b></div>
+        <div class="exec-devops-row"><span>Tasks</span><b>${counts['Task']||0}</b></div>`;
+    }else{
+      execDevOps.innerHTML='<span class="muted">Azure DevOps is not configured. Add App Service Azure DevOps environment variables to show live delivery data.</span>';
+    }
+  }catch(e){
+    execDevOps.innerHTML=`<span class="muted">Azure DevOps snapshot unavailable: ${esc(e.message)}</span>`;
+  }
+
+  execUpdated.textContent=new Date().toLocaleString();
+}
+
+// Make Executive Summary navigation smooth and refresh when selected.
+document.querySelectorAll('a[href="#executive-summary"]').forEach(a=>{
+  a.addEventListener('click',()=>setTimeout(refreshExecutiveSummary,50));
+});
+
+// Refresh once at page load.
+setTimeout(refreshExecutiveSummary,300);

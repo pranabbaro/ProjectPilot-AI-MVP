@@ -18,6 +18,7 @@
 
     <nav>
       <a class="active" href="#dashboard">Dashboard</a>
+      <a href="#executive-summary">Executive Summary</a>
       <a href="#meetings">Meetings</a>
       <a href="#discussion">Project Discussion</a>
       <a href="#planner">AI Project Planner</a>
@@ -71,7 +72,77 @@
         <article><span>GOVERNANCE</span><strong>94%</strong><small>Compliant delivery score</small></article>
       </section>
 
-      <section class="grid-two" id="meetings">
+      
+      <section class="panel executive-panel" id="executive-summary">
+        <div class="panel-head">
+          <div>
+            <span class="section-label">EXECUTIVE SUMMARY</span>
+            <h3>Management Project Overview</h3>
+            <p>Consolidated project status, delivery progress, risks, decisions and next actions.</p>
+          </div>
+          <div class="exec-actions">
+            <button class="small-btn" onclick="refreshExecutiveSummary()">Refresh Summary</button>
+            <button class="small-btn" onclick="window.print()">Print / Save PDF</button>
+          </div>
+        </div>
+
+        <div class="exec-kpis">
+          <div><span>OVERALL HEALTH</span><strong id="execHealth">On Track</strong><small id="execHealthNote">Delivery progressing as planned</small></div>
+          <div><span>DELIVERY PROGRESS</span><strong id="execProgress">72%</strong><small>Overall completion</small></div>
+          <div><span>OPEN ACTIONS</span><strong id="execActions">7</strong><small id="execActionNote">3 require attention</small></div>
+          <div><span>GOVERNANCE</span><strong id="execGovernance">94%</strong><small>Delivery compliance score</small></div>
+        </div>
+
+        <div class="exec-grid">
+          <div class="exec-block">
+            <h4>Executive Narrative</h4>
+            <p id="execNarrative">The project is currently on track. Core delivery activities are progressing through Sprint 3, with focus on approval workflow, security validation and reporting requirements. PMO attention is required for open actions and upcoming security review.</p>
+          </div>
+          <div class="exec-block">
+            <h4>Key Milestones</h4>
+            <div class="milestone"><span class="done">✓</span><div><b>Discovery & Planning</b><small>Completed</small></div></div>
+            <div class="milestone"><span class="done">✓</span><div><b>Core Implementation</b><small>In progress</small></div></div>
+            <div class="milestone"><span>3</span><div><b>Security & Validation</b><small>Upcoming</small></div></div>
+            <div class="milestone"><span>4</span><div><b>Handover & Closure</b><small>Planned</small></div></div>
+          </div>
+        </div>
+
+        <div class="exec-grid">
+          <div class="exec-block">
+            <h4>Top Risks & Attention Areas</h4>
+            <div id="execRisks">
+              <div class="exec-line risk-line"><b>Security validation</b><span>RBAC review must complete before production readiness.</span></div>
+              <div class="exec-line risk-line"><b>Reporting scope</b><span>Expanded reporting requirements may affect Sprint 4 timeline.</span></div>
+            </div>
+          </div>
+          <div class="exec-block">
+            <h4>Key Decisions & Actions</h4>
+            <div id="execDecisions">
+              <div class="exec-line"><b>Decision</b><span>Manager approval escalation retained at 48 hours.</span></div>
+              <div class="exec-line"><b>PMO Action</b><span>Coordinate RBAC validation with Security before Sprint 4.</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="exec-grid">
+          <div class="exec-block">
+            <h4>Azure DevOps Delivery Snapshot</h4>
+            <div id="execDevOps"><span class="muted">Loading live Azure DevOps delivery data...</span></div>
+          </div>
+          <div class="exec-block">
+            <h4>Management Next Steps</h4>
+            <ol id="execNextSteps">
+              <li>Complete security/RBAC validation before production readiness.</li>
+              <li>Close overdue PMO actions before the next sprint review.</li>
+              <li>Confirm reporting scope and assess Sprint 4 impact.</li>
+              <li>Prepare operational handover and closure documentation.</li>
+            </ol>
+          </div>
+        </div>
+        <div class="exec-updated">Last refreshed: <span id="execUpdated">Not refreshed yet</span></div>
+      </section>
+
+<section class="grid-two" id="meetings">
         <article class="panel">
           <div class="panel-head">
             <div>
