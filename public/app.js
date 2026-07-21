@@ -148,3 +148,65 @@ async function archiveSignedHandover(){
 }
 
 loadHandoverStatus();
+
+async function loadMeetingProductStatus(){
+  try{
+    const s=await api('/api/meetings/status');
+    organizerName.textContent=s.organizerDisplayName||'Signed-in Project Manager';
+    organizerEmail.textContent=s.organizerEmail||'Delegated authentication not enabled yet';
+    meetingAuthStatus.textContent=s.delegatedAuthConfigured?'Delegated Auth Ready':'Authentication Pending';
+    meetingMode.textContent=s.delegatedAuthConfigured?'Live Scheduling Ready':'Product Preview';
+  }catch(e){
+    meetingAuthStatus.textContent='Status unavailable';
+  }
+}
+
+async function generateMeetingAgenda(){
+  meetingScheduleResult.textContent='Generating agenda...';
+  try{
+    const r=await api('/api/meetings/generate-agenda',{
+      method:'POST',
+      body:JSON.stringify({
+        discussionNotes:discussionText?.value||''
+      })
+    });
+    meetingAgenda.value=r.agenda;
+    meetingScheduleResult.textContent='Agenda updated from project data.';
+  }catch(e){
+    meetingScheduleResult.textContent=e.message;
+  }
+}
+
+async function scheduleLiveMeeting(){
+  const attendees=liveMeetingAttendees.value.split(/\n|,/).map(x=>x.trim()).filter(Boolean);
+  meetingScheduleResult.textContent='Preparing meeting...';
+  try{
+    const r=await api('/api/meetings/schedule',{
+      method:'POST',
+      body:JSON.stringify({
+        subject:liveMeetingTitle.value,
+        date:liveMeetingDate.value,
+        startTime:liveMeetingTime.value,
+        durationMinutes:Number(liveMeetingDuration.value||30),
+        attendees,
+        teamsMeeting:createTeamsMeeting.checked,
+        agenda:meetingAgenda.value
+      })
+    });
+
+    if(r.preview){
+      meetingScheduleResult.innerHTML='<span class="badge-ok">Meeting request prepared. Enable delegated Entra authentication later to schedule it live in the signed-in PM calendar.</span>';
+      const d=liveMeetingDate.value?new Date(liveMeetingDate.value+'T00:00:00'):new Date();
+      const item=document.createElement('div');
+      item.className='meeting-item';
+      item.innerHTML=`<div class="date-box"><b>${String(d.getDate()).padStart(2,'0')}</b><span>${d.toLocaleString('en',{month:'short'}).toUpperCase()}</span></div><div><strong>${esc(liveMeetingTitle.value)}</strong><p>${esc(liveMeetingTime.value||'TBD')} • Teams meeting ready for delegated scheduling</p></div><span class="meeting-tag">Preview</span>`;
+      meetingList.prepend(item);
+    }else{
+      meetingScheduleResult.innerHTML='<span class="badge-ok">Meeting scheduled successfully.</span>';
+    }
+  }catch(e){
+    meetingScheduleResult.innerHTML=`<span class="badge-bad">${esc(e.message)}</span>`;
+  }
+}
+
+loadMeetingProductStatus();

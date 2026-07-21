@@ -433,7 +433,7 @@ const server=http.createServer(async(req,res)=>{
     if(req.method==='OPTIONS')return send(res,204,'','text/plain');
     const u=new URL(req.url,`http://${req.headers.host}`);
 
-    if(req.method==='GET'&&u.pathname==='/api/health')return send(res,200,{ok:true,version:'4.1.0',azureDevOpsConfigured:azdoConfigured(),sharePointConfigured:graphConfigured(),repoUploadConfigured:!!process.env.AZDO_REPO_ID,environment:process.env.WEBSITE_SITE_NAME?'AZURE_APP_SERVICE':'LOCAL_OR_CODESPACES'});
+    if(req.method==='GET'&&u.pathname==='/api/health')return send(res,200,{ok:true,version:'4.2.0',azureDevOpsConfigured:azdoConfigured(),sharePointConfigured:graphConfigured(),repoUploadConfigured:!!process.env.AZDO_REPO_ID,environment:process.env.WEBSITE_SITE_NAME?'AZURE_APP_SERVICE':'LOCAL_OR_CODESPACES'});
     if(req.method==='GET'&&u.pathname==='/api/devops/status')return send(res,200,{configured:azdoConfigured(),organization:process.env.AZDO_ORG||'',project:process.env.AZDO_PROJECT||''});
     if(req.method==='GET'&&u.pathname==='/api/devops/work-items'){if(!azdoConfigured())return send(res,503,{error:'Azure DevOps is not configured.'});return send(res,200,{items:await queryAllWorkItems()})}
     if(req.method==='GET'&&u.pathname==='/api/devops/compliance'){if(!azdoConfigured())return send(res,503,{error:'Azure DevOps is not configured.'});return send(res,200,buildCompliance(await queryAllWorkItems()))}
@@ -455,7 +455,71 @@ const server=http.createServer(async(req,res)=>{
       return send(res,400,{error:'Unsupported destination'});
     }
     
-    if(req.method==='GET'&&u.pathname==='/api/handover/status'){
+    
+    if(req.method==='GET'&&u.pathname==='/api/meetings/status'){
+      return send(res,200,{
+        delegatedAuthConfigured:process.env.DELEGATED_GRAPH_ENABLED==='true',
+        graphTenantConfigured:!!process.env.GRAPH_TENANT_ID,
+        graphClientConfigured:!!process.env.GRAPH_CLIENT_ID,
+        organizerDisplayName:process.env.DEMO_PM_DISPLAY_NAME||'Signed-in Project Manager',
+        organizerEmail:process.env.DEMO_PM_EMAIL||'',
+        mode:process.env.DELEGATED_GRAPH_ENABLED==='true'?'DELEGATED_READY':'PRODUCT_PREVIEW'
+      });
+    }
+
+    if(req.method==='POST'&&u.pathname==='/api/meetings/generate-agenda'){
+      const b=await readBody(req);
+      let compliance=null, workItems=[];
+      try{
+        if(azdoConfigured()){
+          workItems=await queryAllWorkItems();
+          compliance=buildCompliance(workItems);
+        }
+      }catch{}
+
+      const discussion=extractDiscussion(b.discussionNotes||'');
+      const agenda=[
+        '1. Project status and milestone review',
+        `2. Azure DevOps delivery overview${workItems.length?` (${workItems.length} work items)`:''}`,
+        `3. DevOps compliance review${compliance?` (${compliance.overall}% compliance; ${compliance.nonCompliant} non-compliant items)`:''}`,
+        `4. Open PMO actions${discussion.actions.length?` (${discussion.actions.length})`:''}`,
+        `5. Risks and blockers${discussion.risks.length?` (${discussion.risks.length})`:''}`,
+        '6. Decisions required',
+        '7. Next steps and owners'
+      ];
+      return send(res,200,{
+        agenda:agenda.join('\n'),
+        compliance,
+        workItemCount:workItems.length,
+        actions:discussion.actions,
+        risks:discussion.risks
+      });
+    }
+
+    if(req.method==='POST'&&u.pathname==='/api/meetings/schedule'){
+      const b=await readBody(req);
+      if(process.env.DELEGATED_GRAPH_ENABLED!=='true'){
+        return send(res,200,{
+          scheduled:false,
+          preview:true,
+          message:'Live delegated Microsoft Graph scheduling is not enabled yet. The meeting request is ready for future signed-in PM scheduling.',
+          meeting:{
+            subject:b.subject||'Project Meeting',
+            date:b.date||'',
+            startTime:b.startTime||'',
+            durationMinutes:b.durationMinutes||30,
+            attendees:b.attendees||[],
+            teamsMeeting:b.teamsMeeting!==false,
+            agenda:b.agenda||''
+          }
+        });
+      }
+      return send(res,501,{
+        error:'Delegated authentication is marked enabled, but the OAuth token exchange/session integration must be configured before live scheduling.'
+      });
+    }
+
+if(req.method==='GET'&&u.pathname==='/api/handover/status'){
       return send(res,200,{
         templateUrl:'/templates/Handover.docx',
         adobeSignConfigured:adobeConfigured(),
@@ -548,4 +612,4 @@ const server=http.createServer(async(req,res)=>{
     return serve(u.pathname,res);
   }catch(e){console.error(e);return send(res,500,{error:e.message||'Internal server error'})}
 });
-server.listen(PORT,HOST,()=>console.log(`Project Command Center v4.1 running on ${HOST}:${PORT}`));
+server.listen(PORT,HOST,()=>console.log(`Project Command Center v4.2 running on ${HOST}:${PORT}`));

@@ -9,9 +9,68 @@
 
 <section class="kpis"><article><span>PROJECT STATUS</span><strong class="green">On Track</strong><small>PMO delivery view</small></article><article><span>DEVOPS ITEMS</span><strong id="kpiItems">—</strong><small>Epics to Tasks</small></article><article><span>COMPLIANCE</span><strong id="kpiCompliance">—</strong><small>DevOps hygiene score</small></article><article><span>OPEN ACTIONS</span><strong id="kpiActions">—</strong><small>From latest discussion</small></article></section>
 
-<section class="grid-two" id="meetings"><article class="panel"><div class="panel-head"><div><span class="section-label">MEETING SCHEDULE</span><h3>Upcoming Project Meetings</h3></div><button class="small-btn" onclick="scheduleForm.classList.toggle('hidden')">+ Arrange Call</button></div><div id="meetingList" class="meeting-list"><div class="meeting-item"><div class="date-box"><b>22</b><span>JUL</span></div><div><strong>Weekly Project Sync</strong><p>10:30 AM • Microsoft Teams</p></div><span class="meeting-tag">Upcoming</span></div></div><div id="scheduleForm" class="schedule-form hidden"><input id="meetingTitle" placeholder="Meeting title"><input id="meetingDate" type="date"><input id="meetingTime" type="time"><button class="primary-btn small" onclick="addMeeting()">Add Meeting</button></div></article>
+<section class="grid-two" id="meetings">
+<article class="panel arrange-call-panel">
+  <div class="panel-head">
+    <div>
+      <span class="section-label">LIVE ARRANGE CALL</span>
+      <h3>Schedule Project Meeting</h3>
+      <p>Designed for signed-in PM delegated scheduling through Microsoft Graph and Microsoft Teams.</p>
+    </div>
+    <span id="meetingAuthStatus" class="status-badge">Checking Authentication</span>
+  </div>
 
-<article class="panel" id="discussion"><div class="panel-head"><div><span class="section-label">LATEST DISCUSSION</span><h3>Call Discussion & Action Intelligence</h3></div><span class="ai-pill">AI-assisted</span></div><textarea id="discussionText" class="discussion-box">Manager approval workflow requires escalation after 48 hours. Reporting dashboard should show pending, approved and rejected requests. PMO will coordinate RBAC validation with Security before Sprint 4. Security review is pending and may delay production readiness.</textarea><div class="discussion-actions"><button class="small-btn" onclick="analyseDiscussion()">Analyse & Update MOM</button><span id="discussionStatus"></span></div><div id="discussionOutput" class="discussion-output"><div><b>Ready</b><span>Analyse the latest call notes to update actions, risks and MOM.</span></div></div></article></section>
+  <div class="organizer-card">
+    <div><span>Organizer</span><strong id="organizerName">Signed-in Project Manager</strong><small id="organizerEmail">Delegated authentication not enabled yet</small></div>
+    <span id="meetingMode" class="meeting-mode">Product Preview</span>
+  </div>
+
+  <div class="meeting-form-grid">
+    <label>Meeting Title<input id="liveMeetingTitle" value="Employee Service Portal - Weekly Project Sync"></label>
+    <label>Date<input id="liveMeetingDate" type="date"></label>
+    <label>Start Time<input id="liveMeetingTime" type="time" value="10:30"></label>
+    <label>Duration<select id="liveMeetingDuration"><option value="30">30 Minutes</option><option value="45">45 Minutes</option><option value="60">60 Minutes</option></select></label>
+  </div>
+
+  <div class="meeting-form-row">
+    <label>Required Attendees <small>Enter one email per line</small>
+      <textarea id="liveMeetingAttendees" placeholder="architect@company.com&#10;pmo@company.com&#10;security@company.com"></textarea>
+    </label>
+  </div>
+
+  <label class="teams-toggle"><input id="createTeamsMeeting" type="checkbox" checked> Create Microsoft Teams Meeting</label>
+
+  <div class="agenda-toolbar">
+    <div><b>Project Meeting Agenda</b><small>Can include DevOps compliance, open PMO actions and risks.</small></div>
+    <button class="small-btn" onclick="generateMeetingAgenda()">Generate Agenda</button>
+  </div>
+  <textarea id="meetingAgenda" class="meeting-agenda">1. Project status and milestone review
+2. Azure DevOps delivery overview
+3. DevOps compliance review
+4. Open PMO actions
+5. Risks and blockers
+6. Decisions required
+7. Next steps and owners</textarea>
+
+  <div class="meeting-actions">
+    <button class="primary-btn" onclick="scheduleLiveMeeting()">Schedule Teams Meeting</button>
+    <span id="meetingScheduleResult"></span>
+  </div>
+
+  <div class="delegated-info">
+    <b>Delegated Authentication Ready Design</b>
+    <span>When Entra delegated authentication is enabled later, this same feature can schedule the meeting in the signed-in Project Manager's Outlook calendar and create the Teams meeting automatically.</span>
+  </div>
+</article>
+
+<article class="panel">
+  <div class="panel-head"><div><span class="section-label">UPCOMING PROJECT MEETINGS</span><h3>Meeting Schedule</h3></div></div>
+  <div id="meetingList" class="meeting-list">
+    <div class="meeting-item"><div class="date-box"><b>22</b><span>JUL</span></div><div><strong>Weekly Project Sync</strong><p>10:30 AM • Microsoft Teams</p></div><span class="meeting-tag">Upcoming</span></div>
+    <div class="meeting-item"><div class="date-box"><b>24</b><span>JUL</span></div><div><strong>Sprint Review & Demo</strong><p>3:00 PM • Microsoft Teams</p></div><span class="meeting-tag">Sprint Review</span></div>
+  </div>
+</article>
+</section>
 
 <section class="panel" id="devops-dashboard"><div class="panel-head"><div><span class="section-label">AZURE DEVOPS DASHBOARD</span><h3>Epic → Feature → User Story → Task Overview</h3><p>Live work-item inventory for PMO delivery tracking.</p></div><button class="small-btn" onclick="loadDevOps()">Refresh DevOps</button></div><div id="devopsTypeCards" class="type-cards"></div><div class="filters"><select id="typeFilter" onchange="renderDevOpsTable()"><option value="">All Types</option><option>Epic</option><option>Feature</option><option>User Story</option><option>Product Backlog Item</option><option>Task</option></select><select id="stateFilter" onchange="renderDevOpsTable()"><option value="">All States</option></select></div><div class="table-wrap"><table><thead><tr><th>ID</th><th>Type</th><th>Title</th><th>State</th><th>Assigned To</th><th>Sprint / Iteration</th><th>Tags</th></tr></thead><tbody id="devopsTable"></tbody></table></div></section>
 

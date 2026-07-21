@@ -81,3 +81,37 @@ The standard template is available from:
 ```text
 /templates/Handover.docx
 ```
+
+
+## v4.2 — Live Arrange Call Product Experience
+
+The webpage now includes a full Live Arrange Call product feature even before delegated authentication is enabled.
+
+Visible capabilities:
+- signed-in PM organizer area
+- meeting title, date, time and duration
+- attendee list
+- Teams meeting option
+- project-aware agenda generation
+- DevOps compliance in meeting agenda
+- PMO actions and risks in agenda
+- Schedule Teams Meeting button
+- Upcoming meeting cards
+
+Until delegated authentication is enabled, the feature runs in `PRODUCT_PREVIEW` mode and prepares the meeting without making a live Microsoft Graph calendar write.
+
+App Service switch:
+
+```text
+DELEGATED_GRAPH_ENABLED=false
+DEMO_PM_DISPLAY_NAME=Project Manager
+DEMO_PM_EMAIL=project.manager@company.com
+```
+
+Later, after implementing the Entra delegated OAuth session/token flow, set:
+
+```text
+DELEGATED_GRAPH_ENABLED=true
+```
+
+The UI does not need to be redesigned when authentication is enabled.
