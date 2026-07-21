@@ -190,62 +190,131 @@ async function createDiscussionItem(serialized,itemType){
   }
 }
 
-async function refreshExecutiveSummary(){
-  execUpdated.textContent='Refreshing...';
 
-  // Incorporate latest discussion analysis if available.
-  if(latestDiscussionAnalysis){
-    const risks=(latestDiscussionAnalysis.risks||[]).slice(0,3);
-    if(risks.length){
-      execRisks.innerHTML=risks.map(r=>`<div class="exec-line risk-line"><b>Discussion Risk</b><span>${esc(r.title)}</span></div>`).join('');
-    }
 
-    const decisions=[
-      ...(latestDiscussionAnalysis.decisions||[]).map(x=>({kind:'Decision',title:x.title})),
-      ...(latestDiscussionAnalysis.actions||[]).map(x=>({kind:'PMO Action',title:x.title}))
-    ].slice(0,4);
 
-    if(decisions.length){
-      execDecisions.innerHTML=decisions.map(x=>`<div class="exec-line"><b>${esc(x.kind)}</b><span>${esc(x.title)}</span></div>`).join('');
-    }
-
-    const actionCount=(latestDiscussionAnalysis.actions||[]).length;
-    if(actionCount){
-      execActions.textContent=String(actionCount);
-      execActionNote.textContent='Actions identified from latest discussion';
-    }
-  }
-
-  // Incorporate live Azure DevOps if configured.
-  try{
-    const status=await api('/api/devops/status');
-    if(status.configured){
-      const data=await api('/api/devops/work-items');
-      const items=data.items||[];
-      const counts={};
-      items.forEach(x=>counts[x.type]=(counts[x.type]||0)+1);
-      const active=items.filter(x=>!['Closed','Done','Resolved','Removed'].includes(x.state)).length;
-      execDevOps.innerHTML=`
-        <div class="exec-devops-row"><span>Recent work items</span><b>${items.length}</b></div>
-        <div class="exec-devops-row"><span>Active / open</span><b>${active}</b></div>
-        <div class="exec-devops-row"><span>Epics</span><b>${counts['Epic']||0}</b></div>
-        <div class="exec-devops-row"><span>Features</span><b>${counts['Feature']||0}</b></div>
-        <div class="exec-devops-row"><span>User Stories / PBIs</span><b>${(counts['User Story']||0)+(counts['Product Backlog Item']||0)}</b></div>
-        <div class="exec-devops-row"><span>Tasks</span><b>${counts['Task']||0}</b></div>`;
-    }else{
-      execDevOps.innerHTML='<span class="muted">Azure DevOps is not configured. Add App Service Azure DevOps environment variables to show live delivery data.</span>';
-    }
-  }catch(e){
-    execDevOps.innerHTML=`<span class="muted">Azure DevOps snapshot unavailable: ${esc(e.message)}</span>`;
-  }
-
-  execUpdated.textContent=new Date().toLocaleString();
+function setActiveNav(targetId){
+  document.querySelectorAll('.sidebar nav a').forEach(a=>a.classList.remove('active'));
+  const target=document.getElementById(targetId);
+  if(target)target.classList.add('active');
 }
 
-// Make Executive Summary navigation smooth and refresh when selected.
-document.querySelectorAll('a[href="#executive-summary"]').forEach(a=>{
-  a.addEventListener('click',()=>setTimeout(refreshExecutiveSummary,50));
+function openExecutiveSummary(event){
+  if(event)event.preventDefault();
+  setActiveNav('executiveSummaryNav');
+
+  const section=document.getElementById('executive-summary');
+  if(!section){
+    console.error('Executive Summary section not found');
+    return;
+  }
+
+  section.scrollIntoView({behavior:'smooth',block:'start'});
+
+  try{
+    refreshExecutiveSummary();
+  }catch(e){
+    console.error('Executive Summary refresh failed',e);
+  }
+}
+
+function openDashboard(event){
+  if(event)event.preventDefault();
+  setActiveNav('dashboardNav');
+  const section=document.getElementById('dashboard');
+  if(section)section.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+async function refreshExecutiveSummary(){
+  const updated=document.getElementById('execUpdated');
+  if(updated)updated.textContent='Refreshing...';
+
+  // Default management values remain visible even if integrations are unavailable.
+  try{
+    if(typeof latestDiscussionAnalysis!=='undefined' && latestDiscussionAnalysis){
+      const riskTarget=document.getElementById('execRisks');
+      const decisionTarget=document.getElementById('execDecisions');
+
+      const risks=(latestDiscussionAnalysis.risks||[]).slice(0,3);
+      if(riskTarget && risks.length){
+        riskTarget.innerHTML=risks.map(r=>`
+          <div class="exec-line risk-line">
+            <b>Discussion Risk</b>
+            <span>${esc(r.title||r)}</span>
+          </div>`).join('');
+      }
+
+      const decisions=[
+        ...(latestDiscussionAnalysis.decisions||[]).map(x=>({kind:'Decision',title:x.title||x})),
+        ...(latestDiscussionAnalysis.actions||[]).map(x=>({kind:'PMO Action',title:x.title||x}))
+      ].slice(0,4);
+
+      if(decisionTarget && decisions.length){
+        decisionTarget.innerHTML=decisions.map(x=>`
+          <div class="exec-line">
+            <b>${esc(x.kind)}</b>
+            <span>${esc(x.title)}</span>
+          </div>`).join('');
+      }
+
+      const actionCount=(latestDiscussionAnalysis.actions||[]).length;
+      const actionValue=document.getElementById('execActions');
+      const actionNote=document.getElementById('execActionNote');
+      if(actionCount && actionValue){
+        actionValue.textContent=String(actionCount);
+        if(actionNote)actionNote.textContent='Actions identified from latest discussion';
+      }
+    }
+  }catch(e){
+    console.warn('Discussion summary not available for Executive Summary',e);
+  }
+
+  // Azure DevOps snapshot must never prevent the tab from working.
+  const devOpsTarget=document.getElementById('execDevOps');
+  try{
+    if(typeof api==='function'){
+      const status=await api('/api/devops/status');
+      if(status.configured){
+        const data=await api('/api/devops/work-items');
+        const items=data.items||[];
+        const counts={};
+        items.forEach(x=>counts[x.type]=(counts[x.type]||0)+1);
+        const active=items.filter(x=>!['Closed','Done','Resolved','Removed'].includes(x.state)).length;
+
+        if(devOpsTarget){
+          devOpsTarget.innerHTML=`
+            <div class="exec-devops-row"><span>Recent work items</span><b>${items.length}</b></div>
+            <div class="exec-devops-row"><span>Active / open</span><b>${active}</b></div>
+            <div class="exec-devops-row"><span>Epics</span><b>${counts['Epic']||0}</b></div>
+            <div class="exec-devops-row"><span>Features</span><b>${counts['Feature']||0}</b></div>
+            <div class="exec-devops-row"><span>User Stories / PBIs</span><b>${(counts['User Story']||0)+(counts['Product Backlog Item']||0)}</b></div>
+            <div class="exec-devops-row"><span>Tasks</span><b>${counts['Task']||0}</b></div>`;
+        }
+      }else if(devOpsTarget){
+        devOpsTarget.innerHTML='<span class="muted">Azure DevOps is not configured yet. Executive Summary remains available with dashboard and discussion data.</span>';
+      }
+    }
+  }catch(e){
+    if(devOpsTarget){
+      devOpsTarget.innerHTML=`<span class="muted">Azure DevOps snapshot unavailable. Executive Summary is still available.</span>`;
+    }
+    console.warn('Azure DevOps Executive Summary refresh failed',e);
+  }
+
+  if(updated)updated.textContent=new Date().toLocaleString();
+}
+
+// Remove any old duplicate click listener logic by overriding with explicit nav functions.
+// Make sure the tab remains interactive even before external calls complete.
+document.addEventListener('DOMContentLoaded',()=>{
+  const execNav=document.getElementById('executiveSummaryNav');
+  if(execNav){
+    execNav.addEventListener('keydown',e=>{
+      if(e.key==='Enter'||e.key===' '){
+        e.preventDefault();
+        openExecutiveSummary(e);
+      }
+    });
+  }
 });
 
-// Refresh once at page load.
-setTimeout(refreshExecutiveSummary,300);
