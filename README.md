@@ -1,76 +1,83 @@
-# Project Command Center v4.0 — PMO Governance
+# Project Command Center v4.1 — Standard Handover Governance
 
-## Removed
-- Executive Summary navigation and page.
+This version uses the supplied standard `Handover.docx` template.
 
-## Added
-### Azure DevOps Dashboard
-Live dashboard for:
-- Epics
-- Features
-- User Stories / Product Backlog Items
-- Tasks
-- State
-- Assignee
-- Iteration
-- Tags
+## Workflow
 
-### Azure DevOps Compliance
-Per-work-item compliance checks:
-- Tags updated
-- Sprint / Iteration assigned
-- Description updated
-- Acceptance Criteria updated for User Stories/PBIs
-- Assigned To updated
-- Start/Finish dates for Epic/Feature where applicable
-
-### MOM Synchronization
-Analyse the latest call discussion and the MOM panel updates immediately from that discussion.
-
-### Document Upload
-Upload up to 10 MB in the MVP directly to:
-- SharePoint document library folder through Microsoft Graph
-- Azure DevOps Git repository folder through the Git Push REST API
-
-## App Service environment variables
-
-### Azure DevOps
 ```text
-AZDO_ORG
-AZDO_PROJECT
-AZDO_PAT
-AZDO_STORY_TYPE=User Story
-AZDO_PMO_ASSIGNEE
-AZDO_REPO_ID
-AZDO_REPO_BRANCH=refs/heads/main
-AZDO_REPO_FOLDER_PATH=project-documents
+Architect downloads standard template
+→ Architect completes all mandatory sections
+→ Architect uploads completed DOCX/PDF
+→ Project Command Center validates completion checklist
+→ Submit to PM
+→ PM reviews and approves
+→ PM adds stakeholder signers
+→ Send to Adobe Acrobat Sign
+→ Track agreement status
+→ Download signed agreement
+→ Archive signed PDF to SharePoint
+→ Handover Completed
 ```
 
-PAT scopes need Work Items read/write. Repository upload additionally needs code write permission.
+## Template sections represented in the mandatory checklist
 
-### SharePoint / Microsoft Graph
+- Document metadata
+- Revision history
+- Business Use Case
+- ITCCS / CAP rating and ISEQ
+- Application interfaces
+- Backup, RTO and RPO
+- Stakeholders and contacts
+- Cloud network topology
+- Physical network / firewall topology
+- Authentication
+- Authorization
+- Network zone and deployed resources
+- Encryption
+- Supporting documents
+
+## Adobe Acrobat Sign configuration
+
+Add these App Service environment variables:
+
+```text
+ADOBE_SIGN_ACCESS_TOKEN=<OAuth access token>
+ADOBE_SIGN_API_BASE=https://api.<your-region>.echosign.com/api/rest/v6
+```
+
+For production, use your organization's Adobe Sign OAuth application/refresh-token lifecycle rather than manually maintaining a short-lived access token.
+
+The integration uses:
+- `POST /transientDocuments`
+- `POST /agreements`
+- `GET /agreements/{agreementId}`
+- `GET /agreements/{agreementId}/combinedDocument`
+
+## SharePoint archive configuration
+
+Uses the existing Microsoft Graph settings:
+
 ```text
 GRAPH_TENANT_ID
 GRAPH_CLIENT_ID
 GRAPH_CLIENT_SECRET
 SHAREPOINT_SITE_ID
 SHAREPOINT_DRIVE_ID
-SHAREPOINT_FOLDER_PATH=Project Command Center
+SHAREPOINT_FOLDER_PATH
 ```
 
-The Entra application must have suitable Microsoft Graph application permissions to write to the target SharePoint site/library. Prefer site-scoped permissions such as Sites.Selected where your organization supports it.
+## New endpoints
 
-## API endpoints
 ```text
-GET  /api/health
-GET  /api/devops/status
-GET  /api/devops/work-items
-GET  /api/devops/compliance
-POST /api/ai-plan
-POST /api/approve-plan
-POST /api/discussion-summary
-POST /api/mom
-POST /api/devops/create-discussion-item
-GET  /api/documents/status
-POST /api/documents/upload
+GET  /api/handover/status
+POST /api/handover/submit
+POST /api/handover/send-for-signature
+GET  /api/handover/adobe-status
+POST /api/handover/archive-signed
+```
+
+The standard template is available from:
+
+```text
+/templates/Handover.docx
 ```

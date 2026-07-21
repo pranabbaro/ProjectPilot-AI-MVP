@@ -272,6 +272,154 @@ async function uploadDevOpsRepo(filename,base64){
   return azdoReq('POST',`/_apis/git/repositories/${encodeURIComponent(process.env.AZDO_REPO_ID)}/pushes?api-version=7.1`,payload);
 }
 
+
+function adobeConfigured(){
+  return !!(process.env.ADOBE_SIGN_ACCESS_TOKEN&&process.env.ADOBE_SIGN_API_BASE);
+}
+function adobeBase(){
+  const u=new URL(process.env.ADOBE_SIGN_API_BASE);
+  return {hostname:u.hostname,basePath:u.pathname.replace(/\/+$/,'')};
+}
+function adobeJson(method,apiPath,payload){
+  return new Promise((resolve,reject)=>{
+    const base=adobeBase();
+    const data=payload==null?'':JSON.stringify(payload);
+    const headers={
+      Authorization:`Bearer ${process.env.ADOBE_SIGN_ACCESS_TOKEN}`,
+      Accept:'application/json'
+    };
+    if(data){
+      headers['Content-Type']='application/json';
+      headers['Content-Length']=Buffer.byteLength(data);
+    }
+    const r=https.request({
+      hostname:base.hostname,
+      path:`${base.basePath}${apiPath}`,
+      method,
+      headers
+    },resp=>{
+      let raw='';
+      resp.on('data',c=>raw+=c);
+      resp.on('end',()=>{
+        let out={};
+        try{out=raw?JSON.parse(raw):{}}
+        catch{out={raw}}
+        if(resp.statusCode>=200&&resp.statusCode<300)resolve(out);
+        else reject(Error(`Adobe Sign ${resp.statusCode}: ${raw.slice(0,1000)}`));
+      });
+    });
+    r.on('error',reject);
+    if(data)r.write(data);
+    r.end();
+  });
+}
+function adobeBinary(method,apiPath){
+  return new Promise((resolve,reject)=>{
+    const base=adobeBase();
+    const r=https.request({
+      hostname:base.hostname,
+      path:`${base.basePath}${apiPath}`,
+      method,
+      headers:{
+        Authorization:`Bearer ${process.env.ADOBE_SIGN_ACCESS_TOKEN}`,
+        Accept:'application/pdf'
+      }
+    },resp=>{
+      const chunks=[];
+      resp.on('data',c=>chunks.push(c));
+      resp.on('end',()=>{
+        const buf=Buffer.concat(chunks);
+        if(resp.statusCode>=200&&resp.statusCode<300)resolve(buf);
+        else reject(Error(`Adobe Sign ${resp.statusCode}: ${buf.toString('utf8').slice(0,800)}`));
+      });
+    });
+    r.on('error',reject);
+    r.end();
+  });
+}
+function adobeUploadTransient(filename,buffer){
+  return new Promise((resolve,reject)=>{
+    const boundary='----ProjectCommandCenter'+Date.now().toString(16);
+    const head=Buffer.from(
+      `--${boundary}\r\n`+
+      `Content-Disposition: form-data; name="File"; filename="${filename.replace(/"/g,'')}"\r\n`+
+      `Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document\r\n\r\n`
+    );
+    const tail=Buffer.from(`\r\n--${boundary}--\r\n`);
+    const body=Buffer.concat([head,buffer,tail]);
+    const base=adobeBase();
+    const r=https.request({
+      hostname:base.hostname,
+      path:`${base.basePath}/transientDocuments`,
+      method:'POST',
+      headers:{
+        Authorization:`Bearer ${process.env.ADOBE_SIGN_ACCESS_TOKEN}`,
+        'Content-Type':`multipart/form-data; boundary=${boundary}`,
+        'Content-Length':body.length,
+        Accept:'application/json'
+      }
+    },resp=>{
+      let raw='';
+      resp.on('data',c=>raw+=c);
+      resp.on('end',()=>{
+        let out={};
+        try{out=raw?JSON.parse(raw):{}}
+        catch{}
+        if(resp.statusCode>=200&&resp.statusCode<300&&out.transientDocumentId)resolve(out);
+        else reject(Error(`Adobe Sign transient document ${resp.statusCode}: ${raw.slice(0,1000)}`));
+      });
+    });
+    r.on('error',reject);
+    r.write(body);
+    r.end();
+  });
+}
+async function adobeSendAgreement(filename,buffer,agreementName,signers){
+  const transient=await adobeUploadTransient(filename,buffer);
+  const participantSetsInfo=(signers||[]).map((s,i)=>({
+    memberInfos:[{email:s.email}],
+    order:i+1,
+    role:'SIGNER',
+    name:s.name||s.email
+  }));
+  if(!participantSetsInfo.length)throw Error('At least one signer is required.');
+  return adobeJson('POST','/agreements',{
+    fileInfos:[{transientDocumentId:transient.transientDocumentId}],
+    name:agreementName,
+    participantSetsInfo,
+    signatureType:'ESIGN',
+    state:'IN_PROCESS',
+    message:'Please review and digitally sign the project handover document.'
+  });
+}
+function standardHandoverChecklist(){
+  return [
+    {id:'documentMetadata',label:'Document metadata completed (Document ID, file name/location, version, status, author, effective date)',required:true},
+    {id:'revisionHistory',label:'Revision history completed',required:true},
+    {id:'businessUseCase',label:'Business Use Case / Description completed',required:true},
+    {id:'capIseq',label:'ITCCS / CAP rating and ISEQ review completed',required:true},
+    {id:'interfaces',label:'Application interfaces and data flows documented',required:true},
+    {id:'backup',label:'Backup requirements, RTO and RPO documented',required:true},
+    {id:'stakeholders',label:'Stakeholders, demand/environment profile and contacts completed',required:true},
+    {id:'cloudArchitecture',label:'Cloud network topology / architecture documented',required:true},
+    {id:'physicalNetwork',label:'Physical network / firewall topology documented',required:true},
+    {id:'authentication',label:'Authentication design completed',required:true},
+    {id:'authorization',label:'Authorization design completed',required:true},
+    {id:'networkResources',label:'Network zone and deployed resources documented',required:true},
+    {id:'encryption',label:'Encryption for data in transit / at rest / backups documented',required:true},
+    {id:'supportingDocs',label:'Supporting architecture/operations documents attached or linked',required:true}
+  ];
+}
+function validateHandoverSubmission(b){
+  const required=standardHandoverChecklist().filter(x=>x.required).map(x=>x.id);
+  const completed=new Set((b.completedSections||[]).map(String));
+  const missing=required.filter(x=>!completed.has(x));
+  if(!b.architectName)missing.push('architectName');
+  if(!b.projectName)missing.push('projectName');
+  if(!b.completedDocumentBase64)missing.push('completedDocument');
+  return missing;
+}
+
 function serve(p,res){
   const rel=p==='/'?'index.html':p.replace(/^\/+/,'');
   const fp=path.normalize(path.join(PUBLIC,rel));
@@ -285,7 +433,7 @@ const server=http.createServer(async(req,res)=>{
     if(req.method==='OPTIONS')return send(res,204,'','text/plain');
     const u=new URL(req.url,`http://${req.headers.host}`);
 
-    if(req.method==='GET'&&u.pathname==='/api/health')return send(res,200,{ok:true,version:'4.0.0',azureDevOpsConfigured:azdoConfigured(),sharePointConfigured:graphConfigured(),repoUploadConfigured:!!process.env.AZDO_REPO_ID,environment:process.env.WEBSITE_SITE_NAME?'AZURE_APP_SERVICE':'LOCAL_OR_CODESPACES'});
+    if(req.method==='GET'&&u.pathname==='/api/health')return send(res,200,{ok:true,version:'4.1.0',azureDevOpsConfigured:azdoConfigured(),sharePointConfigured:graphConfigured(),repoUploadConfigured:!!process.env.AZDO_REPO_ID,environment:process.env.WEBSITE_SITE_NAME?'AZURE_APP_SERVICE':'LOCAL_OR_CODESPACES'});
     if(req.method==='GET'&&u.pathname==='/api/devops/status')return send(res,200,{configured:azdoConfigured(),organization:process.env.AZDO_ORG||'',project:process.env.AZDO_PROJECT||''});
     if(req.method==='GET'&&u.pathname==='/api/devops/work-items'){if(!azdoConfigured())return send(res,503,{error:'Azure DevOps is not configured.'});return send(res,200,{items:await queryAllWorkItems()})}
     if(req.method==='GET'&&u.pathname==='/api/devops/compliance'){if(!azdoConfigured())return send(res,503,{error:'Azure DevOps is not configured.'});return send(res,200,buildCompliance(await queryAllWorkItems()))}
@@ -306,7 +454,98 @@ const server=http.createServer(async(req,res)=>{
       if(b.destination==='devops'){const r=await uploadDevOpsRepo(b.filename,b.contentBase64);return send(res,200,{message:'Uploaded to Azure DevOps repository.',pushId:r.pushId||'',filename:b.filename})}
       return send(res,400,{error:'Unsupported destination'});
     }
+    
+    if(req.method==='GET'&&u.pathname==='/api/handover/status'){
+      return send(res,200,{
+        templateUrl:'/templates/Handover.docx',
+        adobeSignConfigured:adobeConfigured(),
+        sharePointConfigured:graphConfigured(),
+        checklist:standardHandoverChecklist()
+      });
+    }
+
+    if(req.method==='POST'&&u.pathname==='/api/handover/submit'){
+      const b=await readBody(req);
+      const missing=validateHandoverSubmission(b);
+      if(missing.length)return send(res,400,{error:'Handover submission is incomplete.',missing});
+
+      const buf=Buffer.from(b.completedDocumentBase64,'base64');
+      if(buf.length>10*1024*1024)return send(res,400,{error:'MVP handover upload limit is 10 MB.'});
+
+      let archive=null;
+      if(graphConfigured()){
+        archive=await uploadSharePoint(
+          b.completedDocumentName||'Handover.docx',
+          b.completedDocumentBase64
+        );
+      }
+
+      return send(res,200,{
+        workflowStatus:'SUBMITTED_TO_PM',
+        submittedAt:new Date().toISOString(),
+        architectName:b.architectName,
+        projectName:b.projectName,
+        pmName:b.pmName||'',
+        archivedToSharePoint:!!archive,
+        sharePointWebUrl:archive?.webUrl||''
+      });
+    }
+
+    if(req.method==='POST'&&u.pathname==='/api/handover/send-for-signature'){
+      const b=await readBody(req);
+      if(b.pmApproved!==true)return send(res,400,{error:'PM approval is required before sending for signature.'});
+      if(!adobeConfigured())return send(res,503,{error:'Adobe Acrobat Sign is not configured.'});
+      if(!b.documentBase64||!b.documentName)return send(res,400,{error:'Signed workflow requires documentBase64 and documentName.'});
+      if(!Array.isArray(b.signers)||!b.signers.length)return send(res,400,{error:'At least one stakeholder signer is required.'});
+
+      const invalid=b.signers.filter(x=>!x.email||!String(x.email).includes('@'));
+      if(invalid.length)return send(res,400,{error:'Every signer must have a valid email address.'});
+
+      const agreement=await adobeSendAgreement(
+        b.documentName,
+        Buffer.from(b.documentBase64,'base64'),
+        b.agreementName||`${b.projectName||'Project'} - Handover Approval`,
+        b.signers
+      );
+
+      return send(res,200,{
+        workflowStatus:'SIGNATURE_IN_PROGRESS',
+        agreementId:agreement.id,
+        sentAt:new Date().toISOString()
+      });
+    }
+
+    if(req.method==='GET'&&u.pathname==='/api/handover/adobe-status'){
+      if(!adobeConfigured())return send(res,503,{error:'Adobe Acrobat Sign is not configured.'});
+      const id=u.searchParams.get('agreementId');
+      if(!id)return send(res,400,{error:'agreementId is required'});
+      const agreement=await adobeJson('GET',`/agreements/${encodeURIComponent(id)}`);
+      return send(res,200,{
+        agreementId:id,
+        status:agreement.status||agreement.state||'UNKNOWN',
+        name:agreement.name||'',
+        raw:agreement
+      });
+    }
+
+    if(req.method==='POST'&&u.pathname==='/api/handover/archive-signed'){
+      const b=await readBody(req);
+      if(!adobeConfigured())return send(res,503,{error:'Adobe Acrobat Sign is not configured.'});
+      if(!graphConfigured())return send(res,503,{error:'SharePoint is not configured.'});
+      if(!b.agreementId)return send(res,400,{error:'agreementId is required'});
+      const pdf=await adobeBinary('GET',`/agreements/${encodeURIComponent(b.agreementId)}/combinedDocument`);
+      const filename=b.filename||'Signed-Handover.pdf';
+      const archive=await uploadSharePoint(filename,pdf.toString('base64'));
+      return send(res,200,{
+        workflowStatus:'COMPLETED',
+        message:'Signed handover archived to SharePoint.',
+        filename,
+        webUrl:archive.webUrl||''
+      });
+    }
+
+
     return serve(u.pathname,res);
   }catch(e){console.error(e);return send(res,500,{error:e.message||'Internal server error'})}
 });
-server.listen(PORT,HOST,()=>console.log(`Project Command Center v4.0 running on ${HOST}:${PORT}`));
+server.listen(PORT,HOST,()=>console.log(`Project Command Center v4.1 running on ${HOST}:${PORT}`));

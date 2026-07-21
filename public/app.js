@@ -16,6 +16,135 @@ async function generatePlan(){generateBtn.disabled=true;try{renderPlan(await api
 async function approvePlan(){if(!latestPlan||!confirm('Approve and create this hierarchy in Azure DevOps?'))return;try{const r=await api('/api/approve-plan',{method:'POST',body:JSON.stringify({approved:true,plan:latestPlan})});approvalStatus.textContent=`Created ${r.created.length} work items`;await loadDevOps();await loadCompliance()}catch(e){approvalStatus.textContent=e.message}}
 async function docStatusLoad(){try{const s=await api('/api/documents/status');docStatus.textContent=`SharePoint: ${s.sharePointConfigured?'Configured':'Not configured'} • DevOps Repo: ${s.devOpsRepoConfigured?'Configured':'Not configured'}`}catch(e){docStatus.textContent=e.message}}
 async function uploadDocument(){const f=docFile.files[0];if(!f)return alert('Select a file');if(f.size>10*1024*1024)return alert('MVP upload limit is 10 MB');uploadResult.textContent='Uploading...';const b64=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=no;r.readAsDataURL(f)});try{const x=await api('/api/documents/upload',{method:'POST',body:JSON.stringify({filename:f.name,contentBase64:b64,destination:docDestination.value})});uploadResult.innerHTML=`<div class="badge-ok">${esc(x.message)}</div>`}catch(e){uploadResult.innerHTML=`<div class="badge-bad">${esc(e.message)}</div>`}}
-function generateHandover(){handoverContent.innerHTML='<b>Handover Package</b><p>Delivery summary, architecture, operational ownership, open risks, known issues, lessons learned and sign-off prepared for review.</p>'}
+
 async function loadAll(){await health();await Promise.allSettled([loadDevOps(),loadCompliance(),docStatusLoad(),updateMOM()])}
 document.querySelectorAll('.quick-prompts button').forEach(b=>b.onclick=()=>requirement.value=b.dataset.prompt);loadAll();
+
+let handoverChecklistData=[];
+let handoverDocumentBase64='';
+let handoverDocumentName='';
+let handoverSigners=[];
+
+async function loadHandoverStatus(){
+  try{
+    const s=await api('/api/handover/status');
+    handoverChecklistData=s.checklist||[];
+    handoverChecklist.innerHTML=handoverChecklistData.map(x=>`
+      <label class="handover-check-item">
+        <input type="checkbox" class="handover-section" value="${esc(x.id)}">
+        ${esc(x.label)}
+      </label>`).join('');
+    handoverIntegrationStatus.textContent=
+      `Adobe Acrobat Sign: ${s.adobeSignConfigured?'Configured':'Not configured'} • SharePoint archive: ${s.sharePointConfigured?'Configured':'Not configured'}`;
+  }catch(e){
+    handoverIntegrationStatus.textContent=e.message;
+  }
+}
+
+function fileToBase64(file){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=()=>resolve(String(r.result).split(',')[1]);
+    r.onerror=reject;
+    r.readAsDataURL(file);
+  });
+}
+
+async function submitHandover(){
+  const file=handoverFile.files[0];
+  if(!file)return alert('Upload the completed standard handover document.');
+  if(file.size>10*1024*1024)return alert('MVP upload limit is 10 MB.');
+
+  const completedSections=[...document.querySelectorAll('.handover-section:checked')].map(x=>x.value);
+  handoverDocumentBase64=await fileToBase64(file);
+  handoverDocumentName=file.name;
+
+  handoverSubmitResult.textContent='Submitting...';
+  try{
+    const r=await api('/api/handover/submit',{
+      method:'POST',
+      body:JSON.stringify({
+        projectName:handoverProjectName.value,
+        architectName:handoverArchitect.value,
+        pmName:handoverPM.value,
+        completedSections,
+        completedDocumentName:file.name,
+        completedDocumentBase64:handoverDocumentBase64
+      })
+    });
+    handoverStage.textContent='PM Review';
+    handoverSubmitResult.innerHTML=`<div class="badge-ok">Submitted to PM for review${r.archivedToSharePoint?' and archived to SharePoint':''}.</div>`;
+    sendAdobeBtn.disabled=false;
+  }catch(e){
+    handoverSubmitResult.innerHTML=`<div class="badge-bad">${esc(e.message)}</div>`;
+  }
+}
+
+function addSigner(){
+  const name=signerName.value.trim(),email=signerEmail.value.trim();
+  if(!email||!email.includes('@'))return alert('Enter a valid stakeholder email.');
+  handoverSigners.push({name:name||email,email});
+  signerName.value='';signerEmail.value='';
+  renderSigners();
+}
+function renderSigners(){
+  signerList.innerHTML=handoverSigners.map((x,i)=>`
+    <div class="signer-row"><span>${i+1}. ${esc(x.name)} &lt;${esc(x.email)}&gt;</span><button onclick="removeSigner(${i})">Remove</button></div>`).join('');
+}
+function removeSigner(i){handoverSigners.splice(i,1);renderSigners()}
+
+async function sendToAdobe(){
+  if(!pmHandoverApproved.checked)return alert('PM must approve the completed handover before Adobe Sign.');
+  if(!handoverDocumentBase64)return alert('Submit the completed handover first.');
+  if(!handoverSigners.length)return alert('Add at least one stakeholder signer.');
+  adobeResult.textContent='Sending to Adobe Acrobat Sign...';
+  try{
+    const r=await api('/api/handover/send-for-signature',{
+      method:'POST',
+      body:JSON.stringify({
+        pmApproved:true,
+        projectName:handoverProjectName.value,
+        documentName:handoverDocumentName,
+        documentBase64:handoverDocumentBase64,
+        agreementName:`${handoverProjectName.value||'Project'} - Handover Approval`,
+        signers:handoverSigners
+      })
+    });
+    agreementId.value=r.agreementId;
+    handoverStage.textContent='Signature Pending';
+    adobeResult.innerHTML=`<div class="badge-ok">Sent to Adobe Acrobat Sign. Agreement ID: ${esc(r.agreementId)}</div>`;
+    signatureStatus.textContent='Signature workflow is in progress.';
+  }catch(e){
+    adobeResult.innerHTML=`<div class="badge-bad">${esc(e.message)}</div>`;
+  }
+}
+
+async function checkAdobeStatus(){
+  if(!agreementId.value)return alert('No Adobe Agreement ID is available.');
+  signatureStatus.textContent='Checking...';
+  try{
+    const r=await api(`/api/handover/adobe-status?agreementId=${encodeURIComponent(agreementId.value)}`);
+    signatureStatus.textContent=`Adobe agreement status: ${r.status}`;
+    if(String(r.status).toUpperCase().includes('SIGNED')){
+      handoverStage.textContent='Signed';
+    }
+  }catch(e){signatureStatus.textContent=e.message}
+}
+
+async function archiveSignedHandover(){
+  if(!agreementId.value)return alert('No Adobe Agreement ID is available.');
+  signatureStatus.textContent='Downloading signed agreement and archiving to SharePoint...';
+  try{
+    const r=await api('/api/handover/archive-signed',{
+      method:'POST',
+      body:JSON.stringify({
+        agreementId:agreementId.value,
+        filename:`${handoverProjectName.value||'Project'}-Signed-Handover.pdf`
+      })
+    });
+    handoverStage.textContent='Completed';
+    signatureStatus.innerHTML=`<span class="badge-ok">${esc(r.message)}</span>${r.webUrl?` <a href="${esc(r.webUrl)}" target="_blank">Open in SharePoint</a>`:''}`;
+  }catch(e){signatureStatus.textContent=e.message}
+}
+
+loadHandoverStatus();

@@ -23,5 +23,57 @@
 
 <article class="panel" id="mom"><div class="panel-head"><div><span class="section-label">MOM & ACTIONS</span><h3>Latest Minutes of Meeting</h3><p>Automatically synchronized from the latest analysed call discussion.</p></div><button class="small-btn" onclick="updateMOM()">Refresh MOM</button></div><div id="momContent" class="doc-box"><b>No MOM generated yet</b><p>Analyse the latest call discussion to generate/update MOM.</p></div></article></section>
 
-<section class="panel" id="handover"><div class="panel-head"><div><span class="section-label">HANDOVER</span><h3>Project Closure & Handover</h3></div><button class="small-btn" onclick="generateHandover()">Generate Handover</button></div><div id="handoverContent" class="doc-box"><p>Architecture, delivery summary, operational ownership, risks, lessons learned and sign-off.</p></div></section>
+<section class="panel" id="handover">
+<div class="panel-head"><div><span class="section-label">HANDOVER GOVERNANCE</span><h3>Standard Handover & Stakeholder Sign-off</h3><p>Architect completion → PM review → stakeholder digital signatures → SharePoint archive.</p></div><span id="handoverStage" class="status-badge">Architect Preparation</span></div>
+
+<div class="handover-steps">
+  <div class="handover-step active"><b>1</b><span>Architect Preparation</span></div>
+  <div class="handover-step"><b>2</b><span>PM Review</span></div>
+  <div class="handover-step"><b>3</b><span>Adobe Sign</span></div>
+  <div class="handover-step"><b>4</b><span>Completed</span></div>
+</div>
+
+<div class="handover-grid">
+  <div class="handover-card">
+    <h4>1. Standard Handover Template</h4>
+    <p>Use the approved organizational handover template.</p>
+    <a class="download-template" href="/templates/Handover.docx" download>Download Standard Handover Template</a>
+    <div id="handoverIntegrationStatus" class="doc-status">Checking Handover integrations...</div>
+  </div>
+  <div class="handover-card">
+    <h4>Architect & Project Details</h4>
+    <input id="handoverProjectName" placeholder="Project name">
+    <input id="handoverArchitect" placeholder="Architect name">
+    <input id="handoverPM" placeholder="Project Manager name">
+  </div>
+</div>
+
+<div class="handover-card">
+  <h4>2. Mandatory Standard-Template Sections</h4>
+  <p>Architect confirms that each required section in the completed standard template has been filled.</p>
+  <div id="handoverChecklist" class="handover-checklist"></div>
+</div>
+
+<div class="handover-card">
+  <h4>3. Upload Completed Architect Handover</h4>
+  <input id="handoverFile" type="file" accept=".docx,.pdf">
+  <button class="primary-btn" onclick="submitHandover()">Submit to PM for Review</button>
+  <div id="handoverSubmitResult"></div>
+</div>
+
+<div class="handover-card">
+  <h4>4. PM Review & Stakeholder Signatures</h4>
+  <label class="pm-approval"><input id="pmHandoverApproved" type="checkbox"> PM confirms the handover is complete and approved for stakeholder signature.</label>
+  <div class="signer-entry"><input id="signerName" placeholder="Stakeholder name"><input id="signerEmail" placeholder="Stakeholder email"><button class="small-btn" onclick="addSigner()">+ Add Signer</button></div>
+  <div id="signerList"></div>
+  <button id="sendAdobeBtn" class="primary-btn" onclick="sendToAdobe()" disabled>Send to Adobe Acrobat Sign</button>
+  <div id="adobeResult"></div>
+</div>
+
+<div class="handover-card">
+  <h4>5. Signature Tracking & Final Archive</h4>
+  <div class="signature-track"><input id="agreementId" placeholder="Adobe Agreement ID" readonly><button class="small-btn" onclick="checkAdobeStatus()">Check Signature Status</button><button class="small-btn" onclick="archiveSignedHandover()">Archive Signed Document</button></div>
+  <div id="signatureStatus" class="doc-status">No signature workflow started.</div>
+</div>
+</section>
 </main></div><script src="/app.js"></script></body></html>
