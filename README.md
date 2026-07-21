@@ -1,19 +1,35 @@
-# ProjectPilot AI Phase 2.1
+# ProjectPilot AI MVP — Phase 2.2
 
-Tested Codespaces-ready MVP endpoint for Moveworks.
+Azure App Service + Moveworks ready.
 
-Run:
-
+## Test
 ```bash
 npm test
+```
+Expected: `All Phase 2.2 tests passed.`
+
+## Start
+```bash
 npm start
 ```
 
-Moveworks HTTP Action:
+## Azure App Service
+The server uses `process.env.PORT || 7071` and binds to `0.0.0.0`, so it is ready for Linux App Service.
 
-- POST `/api/ai-plan`
-- JSON body: `{"project_requirement":"<dynamic Moveworks value>"}`
+Health: `GET /api/health`
 
-The endpoint accepts either a plain requirement (connectivity test/fallback) or a fully structured Moveworks-generated plan. It always returns `status: DRAFT`. Azure DevOps writes remain behind `/api/approve-plan`.
+Moveworks: `POST /api/ai-plan`
 
-Do not commit Azure DevOps secrets. Use Codespaces secrets for `AZDO_ORG`, `AZDO_PROJECT`, and `AZDO_PAT`.
+Request body:
+```json
+{"project_requirement":"Create a project plan..."}
+```
+
+Data Mapper:
+```text
+{"project_requirement": project_requirement}
+```
+
+All plans stay `DRAFT` until `/api/approve-plan` is called.
+
+For real Azure DevOps creation, configure App Service environment variables: `AZDO_ORG`, `AZDO_PROJECT`, `AZDO_PAT`.

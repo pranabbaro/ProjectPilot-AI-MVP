@@ -1,7 +1,8 @@
 {
   "name": "projectpilot-ai-mvp",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "private": true,
+  "description": "ProjectPilot AI MVP Phase 2.2 - Azure App Service and Moveworks ready",
   "scripts": {
     "start": "node server.js",
     "test": "node test.js"

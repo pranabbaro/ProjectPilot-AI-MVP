@@ -1,20 +1,197 @@
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const https = require('https');
 
-const http=require('http'),fs=require('fs'),path=require('path'),https=require('https');
-const PORT=process.env.PORT||7071,PUBLIC=path.join(__dirname,'public');
-function send(res,s,b,t='application/json'){res.writeHead(s,{'Content-Type':t,'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type'});res.end(t.includes('json')?JSON.stringify(b):b)}
-function body(req){return new Promise((ok,no)=>{let d='';req.on('data',c=>d+=c);req.on('end',()=>{try{ok(d?JSON.parse(d):{})}catch(e){no(e)}});req.on('error',no)})}
-function title(s){return s.replace(/\w\S*/g,w=>w[0].toUpperCase()+w.slice(1).toLowerCase())}
-function infer(q){let m=q.match(/(?:build|create|plan|migrate|implement)\s+(?:an?\s+)?(.+?)(?:\s+(?:where|that|with|including|from|for)\b|[.,]|$)/i);return m?title(m[1]).slice(0,80):'New Project'}
-function fallback(q){let n=infer(q);return {projectName:n,projectObjective:q,estimatedSprints:4,epic:{title:n,features:[{title:'Discovery and Planning',userStories:[{title:'Define delivery requirements',acceptanceCriteria:['Scope is documented','Stakeholders approve requirements'],recommendedSprint:'Sprint 1',dependencies:[],tasks:[{title:'Confirm scope'},{title:'Document requirements'},{title:'Review dependencies'}]}]},{title:'Implementation',userStories:[{title:'Deliver core solution',acceptanceCriteria:['Core solution is implemented','Validation is completed'],recommendedSprint:'Sprint 2',dependencies:['Discovery and Planning'],tasks:[{title:'Implement solution'},{title:'Perform testing'},{title:'Resolve findings'}]}]},{title:'Handover and Closure',userStories:[{title:'Complete operational handover',acceptanceCriteria:['Documentation is complete','Operations accepts handover'],recommendedSprint:'Sprint 4',dependencies:['Implementation'],tasks:[{title:'Prepare handover document'},{title:'Complete knowledge transfer'},{title:'Obtain sign-off'}]}]}]},risks:[],status:'DRAFT',source:'PROJECTPILOT_FALLBACK'}}
-function normalize(b){if(b.plan)b=b.plan;if(!b.epic&&!b.features)return fallback(b.project_requirement||b.projectRequirement||'Create a new project');let ep=b.epic||{title:b.projectName,features:b.features};return {projectName:b.projectName||ep.title||'New Project',projectObjective:b.projectObjective||b.project_requirement||'',estimatedSprints:b.estimatedSprints||4,epic:{title:ep.title||b.projectName,features:(ep.features||[]).map(f=>({title:f.title,userStories:(f.userStories||f.stories||[]).map(s=>({title:s.title,acceptanceCriteria:s.acceptanceCriteria||[],recommendedSprint:s.recommendedSprint||'',dependencies:s.dependencies||[],tasks:(s.tasks||[]).map(t=>typeof t==='string'?{title:t}:t)}))}))},risks:b.risks||[],status:'DRAFT',source:'MOVEWORKS_AI'}}
-function configured(){return !!(process.env.AZDO_ORG&&process.env.AZDO_PROJECT&&process.env.AZDO_PAT)}
-function azdo(method,payloadPath,payload){return new Promise((ok,no)=>{let d=JSON.stringify(payload),a=Buffer.from(':'+process.env.AZDO_PAT).toString('base64');let r=https.request({hostname:'dev.azure.com',path:`/${encodeURIComponent(process.env.AZDO_ORG)}/${encodeURIComponent(process.env.AZDO_PROJECT)}${payloadPath}`,method,headers:{Authorization:`Basic ${a}`,'Content-Type':'application/json-patch+json','Content-Length':Buffer.byteLength(d)}},x=>{let o='';x.on('data',c=>o+=c);x.on('end',()=>x.statusCode<300?ok(JSON.parse(o)):no(Error(`Azure DevOps ${x.statusCode}: ${o}`)))});r.on('error',no);r.write(d);r.end()})}
-async function create(type,title,parent){let p=[{op:'add',path:'/fields/System.Title',value:title},{op:'add',path:'/fields/System.Tags',value:'ProjectPilot-AI;PM-Approved'}];if(parent)p.push({op:'add',path:'/relations/-',value:{rel:'System.LinkTypes.Hierarchy-Reverse',url:`https://dev.azure.com/${process.env.AZDO_ORG}/_apis/wit/workItems/${parent}`}});return azdo('POST',`/_apis/wit/workitems/$${encodeURIComponent(type)}?api-version=7.1`,p)}
-async function hierarchy(plan){let out=[],e=await create('Epic',plan.epic.title);out.push({type:'Epic',id:e.id,title:plan.epic.title});for(let f of plan.epic.features){let fi=await create('Feature',f.title,e.id);out.push({type:'Feature',id:fi.id,title:f.title});for(let s of f.userStories){let si=await create('User Story',s.title,fi.id);out.push({type:'User Story',id:si.id,title:s.title});for(let t of s.tasks){let ti=await create('Task',t.title,si.id);out.push({type:'Task',id:ti.id,title:t.title})}}}return out}
-const srv=http.createServer(async(req,res)=>{try{if(req.method==='OPTIONS')return send(res,204,'','text/plain');let u=new URL(req.url,`http://${req.headers.host}`);
-if(req.method==='GET'&&u.pathname==='/api/health')return send(res,200,{ok:true,version:'2.1.0',mode:configured()?'AZURE_DEVOPS':'DEMO'});
-if(req.method==='POST'&&u.pathname==='/api/ai-plan'){let b=await body(req);if(!b.project_requirement&&!b.projectRequirement&&!b.plan&&!b.epic&&!b.features)return send(res,400,{error:'project_requirement or structured plan is required'});return send(res,200,normalize(b))}
-if(req.method==='POST'&&u.pathname==='/api/approve-plan'){let b=await body(req);if(!b.plan)return send(res,400,{error:'plan required'});if(!configured())return send(res,200,{mode:'DEMO',message:'Approval recorded; Azure DevOps creation simulated.',created:[{type:'Epic',id:1001,title:b.plan.epic.title}]});return send(res,200,{mode:'AZURE_DEVOPS',message:'Approved hierarchy created.',created:await hierarchy(b.plan)})}
-let f=u.pathname==='/'?'index.html':u.pathname.slice(1),fp=path.join(PUBLIC,f);if(fs.existsSync(fp))return send(res,200,fs.readFileSync(fp),f.endsWith('.js')?'application/javascript':f.endsWith('.css')?'text/css':'text/html');send(res,404,{error:'Not found'})
-}catch(e){console.error(e);send(res,500,{error:e.message})}});
-srv.listen(PORT,()=>console.log(`ProjectPilot AI Phase 2.1 running at http://localhost:${PORT}`));
+const PORT = Number(process.env.PORT || 7071);
+const HOST = process.env.HOST || '0.0.0.0';
+const PUBLIC_DIR = path.join(__dirname, 'public');
+
+function send(res, status, body, contentType = 'application/json') {
+  res.writeHead(status, {
+    'Content-Type': contentType,
+    'Cache-Control': 'no-store',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
+  });
+  res.end(contentType.includes('json') ? JSON.stringify(body) : body);
+}
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let raw = '';
+    req.on('data', chunk => raw += chunk);
+    req.on('end', () => {
+      try { resolve(raw ? JSON.parse(raw) : {}); }
+      catch { reject(new Error('Invalid JSON body')); }
+    });
+    req.on('error', reject);
+  });
+}
+
+function titleCase(value) {
+  return String(value || '').replace(/[_-]+/g, ' ').replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+}
+
+function inferProjectName(requirement) {
+  const text = String(requirement || '');
+  const match = text.match(/(?:build|create|plan|implement|migrate|deploy)\s+(?:an?\s+)?(.+?)(?:\s+(?:where|that|with|including|from|for|to)\b|[.,]|$)/i);
+  return match && match[1] ? titleCase(match[1]).slice(0, 100) : 'New Project';
+}
+
+function fallbackPlan(requirement) {
+  const projectName = inferProjectName(requirement);
+  return {
+    projectName,
+    projectObjective: requirement,
+    estimatedSprints: 4,
+    epic: {
+      title: projectName,
+      features: [
+        { title: 'Discovery and Planning', userStories: [
+          { title: 'Define delivery requirements', acceptanceCriteria: ['Project scope is documented','Stakeholders approve the delivery requirements'], recommendedSprint: 'Sprint 1', dependencies: [], tasks: [{title:'Confirm project scope'},{title:'Document requirements'},{title:'Review technical dependencies'}] }
+        ]},
+        { title: 'Implementation', userStories: [
+          { title: 'Deliver the core solution', acceptanceCriteria: ['Core solution is implemented','Functional validation is completed'], recommendedSprint: 'Sprint 2', dependencies: ['Discovery and Planning'], tasks: [{title:'Implement core solution'},{title:'Perform functional testing'},{title:'Resolve implementation findings'}] }
+        ]},
+        { title: 'Handover and Closure', userStories: [
+          { title: 'Complete operational handover', acceptanceCriteria: ['Handover documentation is complete','Operations accepts the handover'], recommendedSprint: 'Sprint 4', dependencies: ['Implementation'], tasks: [{title:'Prepare handover documentation'},{title:'Complete knowledge transfer'},{title:'Obtain project sign-off'}] }
+        ]}
+      ]
+    },
+    risks: [],
+    status: 'DRAFT',
+    source: 'PROJECTPILOT_FALLBACK'
+  };
+}
+
+function normalizePlan(input) {
+  let body = input || {};
+  if (body.plan) body = body.plan;
+  const requirement = body.project_requirement || body.projectRequirement || '';
+  if (!body.epic && !body.features) return fallbackPlan(requirement || 'Create a new project');
+  const epic = body.epic || { title: body.projectName || body.project_name || 'New Project', features: body.features || [] };
+  const projectName = body.projectName || body.project_name || epic.title || inferProjectName(requirement);
+  return {
+    projectName,
+    projectObjective: body.projectObjective || body.project_objective || requirement || `Deliver ${projectName}`,
+    estimatedSprints: body.estimatedSprints || body.estimated_sprints || 4,
+    epic: {
+      title: epic.title || projectName,
+      features: (epic.features || []).map(f => ({
+        title: f.title || f.name || 'Untitled Feature',
+        userStories: (f.userStories || f.user_stories || f.stories || []).map(s => ({
+          title: s.title || s.name || 'Untitled User Story',
+          acceptanceCriteria: Array.isArray(s.acceptanceCriteria || s.acceptance_criteria) ? (s.acceptanceCriteria || s.acceptance_criteria) : [String(s.acceptanceCriteria || s.acceptance_criteria || '')].filter(Boolean),
+          recommendedSprint: s.recommendedSprint || s.recommended_sprint || '',
+          dependencies: Array.isArray(s.dependencies) ? s.dependencies : [],
+          tasks: (s.tasks || []).map(t => ({ title: typeof t === 'string' ? t : (t.title || t.name || 'Untitled Task') }))
+        }))
+      }))
+    },
+    risks: Array.isArray(body.risks) ? body.risks : [],
+    status: 'DRAFT',
+    source: 'MOVEWORKS_AI'
+  };
+}
+
+function azdoConfigured() {
+  return Boolean(process.env.AZDO_ORG && process.env.AZDO_PROJECT && process.env.AZDO_PAT);
+}
+
+function azdoRequest(method, apiPath, payload) {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify(payload);
+    const auth = Buffer.from(`:${process.env.AZDO_PAT}`).toString('base64');
+    const req = https.request({
+      hostname: 'dev.azure.com',
+      path: `/${encodeURIComponent(process.env.AZDO_ORG)}/${encodeURIComponent(process.env.AZDO_PROJECT)}${apiPath}`,
+      method,
+      headers: { Authorization: `Basic ${auth}`, Accept: 'application/json', 'Content-Type': 'application/json-patch+json', 'Content-Length': Buffer.byteLength(body) }
+    }, res => {
+      let raw='';
+      res.on('data', c => raw += c);
+      res.on('end', () => {
+        let parsed={}; try { parsed = raw ? JSON.parse(raw) : {}; } catch { parsed={raw}; }
+        if (res.statusCode >= 200 && res.statusCode < 300) resolve(parsed);
+        else reject(new Error(`Azure DevOps ${res.statusCode}: ${raw.slice(0,600)}`));
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+async function createWorkItem(type, title, parentId) {
+  const patch = [
+    {op:'add',path:'/fields/System.Title',value:title},
+    {op:'add',path:'/fields/System.Tags',value:'ProjectPilot-AI;PM-Approved'}
+  ];
+  if (parentId) patch.push({op:'add',path:'/relations/-',value:{rel:'System.LinkTypes.Hierarchy-Reverse',url:`https://dev.azure.com/${process.env.AZDO_ORG}/_apis/wit/workItems/${parentId}`}});
+  return azdoRequest('POST', `/_apis/wit/workitems/$${encodeURIComponent(type)}?api-version=7.1`, patch);
+}
+
+async function createHierarchy(plan) {
+  const created=[];
+  const epic = await createWorkItem('Epic', plan.epic.title, null);
+  created.push({type:'Epic',id:epic.id,title:plan.epic.title});
+  for (const f of plan.epic.features || []) {
+    const fi = await createWorkItem('Feature', f.title, epic.id);
+    created.push({type:'Feature',id:fi.id,title:f.title});
+    for (const s of f.userStories || []) {
+      const si = await createWorkItem('User Story', s.title, fi.id);
+      created.push({type:'User Story',id:si.id,title:s.title});
+      for (const t of s.tasks || []) {
+        const ti = await createWorkItem('Task', t.title, si.id);
+        created.push({type:'Task',id:ti.id,title:t.title});
+      }
+    }
+  }
+  return created;
+}
+
+function serveStatic(urlPath, res) {
+  const rel = urlPath === '/' ? 'index.html' : urlPath.replace(/^\/+/, '');
+  const file = path.normalize(path.join(PUBLIC_DIR, rel));
+  if (!file.startsWith(PUBLIC_DIR) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return send(res,404,{error:'Not found'});
+  const ext=path.extname(file).toLowerCase();
+  const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'application/javascript; charset=utf-8'};
+  return send(res,200,fs.readFileSync(file),types[ext] || 'application/octet-stream');
+}
+
+const server = http.createServer(async (req,res) => {
+  try {
+    if (req.method === 'OPTIONS') return send(res,204,'','text/plain');
+    const url = new URL(req.url, `http://${req.headers.host}`);
+
+    if (req.method === 'GET' && url.pathname === '/api/health') {
+      return send(res,200,{ok:true,version:'2.2.0',mode:azdoConfigured()?'AZURE_DEVOPS':'DEMO',environment:process.env.WEBSITE_SITE_NAME?'AZURE_APP_SERVICE':'LOCAL_OR_CODESPACES'});
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/ai-plan') {
+      const b = await readBody(req);
+      if (!b.project_requirement && !b.projectRequirement && !b.plan && !b.epic && !b.features) return send(res,400,{error:'project_requirement or structured plan is required'});
+      return send(res,200,normalizePlan(b));
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/approve-plan') {
+      const b = await readBody(req);
+      if (!b.plan) return send(res,400,{error:'plan is required'});
+      if (!azdoConfigured()) return send(res,200,{mode:'DEMO',message:'Approval recorded. Azure DevOps is not configured, so creation was simulated.',created:[{type:'Epic',id:1001,title:b.plan.epic.title}]});
+      const created = await createHierarchy(b.plan);
+      return send(res,200,{mode:'AZURE_DEVOPS',message:'Approved hierarchy created in Azure DevOps.',created});
+    }
+
+    return serveStatic(url.pathname,res);
+  } catch (e) {
+    console.error(e);
+    return send(res,500,{error:e.message || 'Internal server error'});
+  }
+});
+
+server.listen(PORT, HOST, () => {
+  console.log(`ProjectPilot AI Phase 2.2 running on ${HOST}:${PORT}`);
+  console.log(`Mode: ${azdoConfigured() ? 'AZURE_DEVOPS' : 'DEMO'}`);
+});
