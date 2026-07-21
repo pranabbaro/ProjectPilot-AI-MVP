@@ -1,49 +1,19 @@
-# ProjectPilot AI MVP — Phase 2
+# ProjectPilot AI Phase 2.1
 
-Phase 2 adds the governed **Prompt → Epic → Feature → User Story → Task → PM Approval → Azure DevOps** workflow.
+Tested Codespaces-ready MVP endpoint for Moveworks.
 
-## Run in GitHub Codespaces
-
-No `npm install` is required.
+Run:
 
 ```bash
 npm test
 npm start
 ```
 
-Open forwarded port **7071**.
+Moveworks HTTP Action:
 
-## Demo mode
+- POST `/api/ai-plan`
+- JSON body: `{"project_requirement":"<dynamic Moveworks value>"}`
 
-Without Azure DevOps secrets, approval is simulated. This is intentional so the MVP remains demoable.
+The endpoint accepts either a plain requirement (connectivity test/fallback) or a fully structured Moveworks-generated plan. It always returns `status: DRAFT`. Azure DevOps writes remain behind `/api/approve-plan`.
 
-## Real Azure DevOps mode
-
-Add these **Codespaces secrets** (do not commit them):
-
-- `AZDO_ORG` — Azure DevOps organization name
-- `AZDO_PROJECT` — target test project
-- `AZDO_PAT` — short-lived PAT with Work Items Read & Write
-- `AZDO_ITERATION` — optional, e.g. `MyProject\Sprint 1`
-- `AZDO_AREA` — optional area path
-
-Restart the Codespace/server after adding secrets.
-
-The app will display **AZURE DEVOPS • <project>** when configured.
-
-## Upgrade from Phase 1
-
-Replace these files/folders in your repository with Phase 2 versions:
-
-- `server.js`
-- `test.js`
-- `package.json`
-- `public/`
-- `.devcontainer/`
-- `README.md`
-
-Keep `.gitignore`. Do not commit `.env` or PAT values.
-
-## Safety
-
-The Azure DevOps write operation only runs after **Approve & Create in Azure DevOps** is selected. Use a test Azure DevOps project for the MVP.
+Do not commit Azure DevOps secrets. Use Codespaces secrets for `AZDO_ORG`, `AZDO_PROJECT`, and `AZDO_PAT`.
