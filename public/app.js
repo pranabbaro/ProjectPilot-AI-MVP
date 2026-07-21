@@ -11,3 +11,85 @@ async function generatePlan(){generateBtn.disabled=true;generateBtn.textContent=
 function generateMOM(){momContent.innerHTML=`<b>Minutes of Meeting</b><p><strong>Decisions:</strong> Approval escalation retained at 48 hours.</p><p><strong>Actions:</strong> RBAC validation with Security; reporting scope confirmation with business.</p><p><strong>Risks:</strong> Expanded reporting scope may affect Sprint 4 timeline.</p>`}
 function generateHandover(){handoverContent.innerHTML=`<b>Project Handover Package</b><p>Executive summary, architecture overview, delivery summary, operational procedures, known issues, risks, lessons learned, documentation index and sign-off sections prepared for final review.</p>`}
 document.querySelectorAll('.quick-prompts button').forEach(b=>b.onclick=()=>requirement.value=b.dataset.prompt);health();
+
+let currentGeneratedPlan=null;
+let devOpsConfigured=false;
+
+async function loadDevOpsStatus(){
+  try{
+    const s=await api('/api/devops/status');
+    devOpsConfigured=!!s.configured;
+    const badge=document.querySelector('#devops .status-badge');
+    if(badge)badge.textContent=devOpsConfigured?'Connected':'Not Configured';
+    if(!devOpsConfigured){
+      devopsConfigMessage.textContent='Configure AZDO_ORG, AZDO_PROJECT and AZDO_PAT in Azure App Service environment variables to enable live Azure DevOps data.';
+      devopsConfigMessage.classList.remove('hidden');
+    }else{
+      devopsConfigMessage.classList.add('hidden');
+    }
+    if(currentGeneratedPlan)approveDevOpsBtn.disabled=!devOpsConfigured;
+  }catch(e){
+    devOpsConfigured=false;
+  }
+}
+
+function workTypeClass(type){
+  const x=String(type||'').toLowerCase();
+  if(x==='epic')return 'epic';
+  if(x==='feature')return 'feature';
+  if(x.includes('story')||x.includes('backlog'))return 'story';
+  return 'task';
+}
+
+async function loadDevOpsWorkItems(){
+  await loadDevOpsStatus();
+  if(!devOpsConfigured){
+    workItems.innerHTML='<div class="loading-row">Azure DevOps connection is not configured yet.</div>';
+    return;
+  }
+  workItems.innerHTML='<div class="loading-row">Loading live Azure DevOps work items...</div>';
+  try{
+    const data=await api('/api/devops/work-items');
+    if(!data.items?.length){
+      workItems.innerHTML='<div class="loading-row">No work items found.</div>';
+      return;
+    }
+    workItems.innerHTML=data.items.slice(0,12).map(w=>`
+      <div class="work-row">
+        <span class="type ${workTypeClass(w.type)}">${esc(w.type).toUpperCase()}</span>
+        <div><b>#${w.id} ${esc(w.title)}</b><small>${esc(w.iteration||w.assignedTo||'Azure DevOps')}</small></div>
+        <span>${esc(w.state)}</span>
+      </div>`).join('');
+  }catch(e){
+    workItems.innerHTML=`<div class="loading-row">Unable to load Azure DevOps: ${esc(e.message)}</div>`;
+  }
+}
+
+// Override plan renderer to retain generated plan for approval.
+const originalRenderPlan=renderPlan;
+renderPlan=function(p){
+  currentGeneratedPlan=p;
+  originalRenderPlan(p);
+  approveDevOpsBtn.disabled=!devOpsConfigured;
+  approvalStatus.textContent=devOpsConfigured?'Ready for PM approval':'Configure Azure DevOps first';
+};
+
+async function approveAndCreate(){
+  if(!currentGeneratedPlan)return;
+  if(!confirm('PM approval: Create this Epic → Feature → User Story → Task hierarchy in Azure DevOps?'))return;
+  approveDevOpsBtn.disabled=true;
+  approvalStatus.textContent='Creating work items...';
+  try{
+    const result=await api('/api/approve-plan',{
+      method:'POST',
+      body:JSON.stringify({approved:true,plan:currentGeneratedPlan})
+    });
+    approvalStatus.textContent=`Created ${result.created?.length||0} Azure DevOps work items successfully.`;
+    await loadDevOpsWorkItems();
+  }catch(e){
+    approvalStatus.textContent=`Creation failed: ${e.message}`;
+    approveDevOpsBtn.disabled=false;
+  }
+}
+
+loadDevOpsWorkItems();

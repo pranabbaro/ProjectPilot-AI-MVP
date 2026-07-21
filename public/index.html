@@ -127,12 +127,11 @@
             </div>
             <span class="status-badge">Connected</span>
           </div>
-          <div class="work-items">
-            <div class="work-row"><span class="type epic">EPIC</span><div><b>Employee Service Portal</b><small>Overall product delivery</small></div><span>Active</span></div>
-            <div class="work-row"><span class="type feature">FEATURE</span><div><b>Manager Approval Workflow</b><small>Approval, rejection and escalation</small></div><span>In Progress</span></div>
-            <div class="work-row"><span class="type story">STORY</span><div><b>Allow managers to approve requests</b><small>Sprint 3</small></div><span>Committed</span></div>
-            <div class="work-row"><span class="type task">TASK</span><div><b>Design approval screen</b><small>Assigned to UX team</small></div><span>Active</span></div>
+          <div id="devopsConfigMessage" class="devops-config hidden"></div>
+          <div id="workItems" class="work-items">
+            <div class="loading-row">Loading Azure DevOps work items...</div>
           </div>
+          <button class="small-btn refresh-devops" onclick="loadDevOpsWorkItems()">Refresh Work Items</button>
         </article>
 
         <article class="panel">
@@ -178,6 +177,10 @@
           </div>
           <div id="hierarchy"></div>
           <div class="approval-note">Human approval required before any Azure DevOps changes are created.</div>
+          <div class="approval-actions">
+            <button id="approveDevOpsBtn" class="primary-btn" onclick="approveAndCreate()" disabled>Approve & Create in Azure DevOps</button>
+            <span id="approvalStatus"></span>
+          </div>
         </div>
       </section>
 

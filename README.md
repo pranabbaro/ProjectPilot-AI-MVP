@@ -1,24 +1,60 @@
-# Project Command Center v3.0 – Full Dashboard
+# Project Command Center v3.1 — Live Azure DevOps
 
-Restores the full Project Delivery Command Center experience while preserving the current Azure App Service and Moveworks integration.
+## What's real in v3.1
 
-Includes:
+- Reads live Azure DevOps work items into the dashboard.
+- Shows Azure DevOps connection status.
+- Generates project plans through `/api/ai-plan`.
+- Requires explicit browser/PM approval before write.
+- Creates Epic → Feature → User Story → Task hierarchy in Azure DevOps.
+- Refreshes the dashboard from Azure DevOps after creation.
 
-- Executive dashboard
-- Project status, sprint, actions and governance cards
-- Meeting schedule and simple meeting creation
-- Project discussion summary
-- Azure DevOps work item view
-- Delivery insights
-- AI Project Planner
-- MOM generation
-- Project handover section
-- Existing API endpoints unchanged:
-  - GET /api/health
-  - POST /api/ai-plan
-  - POST /api/approve-plan
+## App Service environment variables
 
-Run:
+Configure these under Azure App Service → Settings → Environment variables:
+
+```text
+AZDO_ORG=<Azure DevOps organization name>
+AZDO_PROJECT=<Azure DevOps project name>
+AZDO_PAT=<PAT with Work Items Read & Write>
+AZDO_STORY_TYPE=User Story
+```
+
+Optional:
+
+```text
+AZDO_AREA=<Area Path>
+AZDO_ITERATION=<Default Iteration Path>
+AZDO_ITERATION_PREFIX=<Project\IterationPrefix>
+AZDO_DASHBOARD_TOP=30
+```
+
+For Scrum process projects, set:
+
+```text
+AZDO_STORY_TYPE=Product Backlog Item
+```
+
+Do not commit PATs into GitHub.
+
+## API endpoints
+
+- `GET /api/health`
+- `GET /api/devops/status`
+- `GET /api/devops/work-items`
+- `POST /api/ai-plan`
+- `POST /api/approve-plan`
+
+`POST /api/approve-plan` requires:
+
+```json
+{
+  "approved": true,
+  "plan": { "...": "generated plan" }
+}
+```
+
+## Run
 
 ```bash
 npm test

@@ -1,6 +1,6 @@
 {
   "name": "project-command-center",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "private": true,
   "scripts": {
     "start": "node server.js",
@@ -9,5 +9,5 @@
   "engines": {
     "node": ">=18"
   },
-  "description": "Project Command Center v3.0 - full enterprise project delivery dashboard"
+  "description": "Project Command Center v3.1 - full dashboard with live Azure DevOps integration"
 }
