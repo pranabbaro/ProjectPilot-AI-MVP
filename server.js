@@ -190,6 +190,127 @@ async function createHierarchy(plan){
   return created;
 }
 
+
+function extractDiscussion(notes){
+  const text=String(notes||'').trim();
+  if(!text)return {summary:'',decisions:[],actions:[],risks:[],requirements:[]};
+
+  const sentences=text
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map(x=>x.trim())
+    .filter(Boolean);
+
+  const decisions=[],actions=[],risks=[],requirements=[];
+
+  for(const s of sentences){
+    const lower=s.toLowerCase();
+
+    if(/approved|agreed|decided|will use|will be included|deferred|moved to phase|confirmed/.test(lower)){
+      decisions.push({title:s,source:'Project Discussion'});
+    }
+
+    if(/\bwill\b|action|coordinate|validate|review|complete|prepare|follow up|follow-up|schedule|confirm|owner|pm[o0]/.test(lower)){
+      actions.push({
+        title:s.replace(/^action[:\-\s]*/i,''),
+        owner:/pmo/.test(lower)?'PMO':'PMO',
+        target:/before sprint\s*\d+/i.test(s)?(s.match(/before sprint\s*\d+/i)||[''])[0]:'',
+        source:'Project Discussion',
+        suggestedType:'Task'
+      });
+    }
+
+    if(/risk|may delay|could delay|impact|blocked|pending|dependency|concern|security review/.test(lower)){
+      risks.push({title:s,source:'Project Discussion'});
+    }
+
+    if(/must|should|requires|requirement|needs to|need to|dashboard should|feature/.test(lower)){
+      requirements.push({
+        title:s,
+        source:'Project Discussion',
+        suggestedType:'User Story'
+      });
+    }
+  }
+
+  // de-duplicate by title
+  const dedupe = arr => {
+    const seen=new Set();
+    return arr.filter(x=>{
+      const k=(x.title||'').toLowerCase();
+      if(seen.has(k))return false;
+      seen.add(k);return true;
+    });
+  };
+
+  const summary=sentences.slice(0,4).join(' ');
+  return {
+    summary,
+    decisions:dedupe(decisions),
+    actions:dedupe(actions),
+    risks:dedupe(risks),
+    requirements:dedupe(requirements)
+  };
+}
+
+async function createDiscussionWorkItem(payload){
+  if(!azdoConfigured())throw Error('Azure DevOps is not configured.');
+
+  const itemType=payload.itemType==='User Story'
+    ? (process.env.AZDO_STORY_TYPE||'User Story')
+    : 'Task';
+
+  const title=String(payload.title||'').trim();
+  if(!title)throw Error('Work item title is required.');
+
+  const parentId=payload.parentId?Number(payload.parentId):null;
+  const owner=payload.owner||'PMO';
+  const description=[
+    payload.description||'',
+    `<br><b>Source:</b> ${payload.source||'Project Discussion'}`,
+    `<br><b>Owner:</b> ${owner}`,
+    payload.target?`<br><b>Target:</b> ${payload.target}`:''
+  ].join('');
+
+  const patch=[
+    patchField('/fields/System.Title',title),
+    patchField('/fields/System.Tags','Project-Command-Center;Project-Discussion;PM-Approved'),
+    patchField('/fields/System.Description',description)
+  ];
+
+  const assignee=process.env.AZDO_PMO_ASSIGNEE;
+  if(assignee){
+    patch.push(patchField('/fields/System.AssignedTo',assignee));
+  }
+
+  if(process.env.AZDO_AREA){
+    patch.push(patchField('/fields/System.AreaPath',process.env.AZDO_AREA));
+  }
+
+  if(process.env.AZDO_ITERATION){
+    patch.push(patchField('/fields/System.IterationPath',process.env.AZDO_ITERATION));
+  }
+
+  if(parentId){
+    patch.push({
+      op:'add',
+      path:'/relations/-',
+      value:{
+        rel:'System.LinkTypes.Hierarchy-Reverse',
+        url:`https://dev.azure.com/${process.env.AZDO_ORG}/_apis/wit/workItems/${parentId}`,
+        attributes:{comment:'Linked from Project Discussion by Project Command Center'}
+      }
+    });
+  }
+
+  return azdoRequest(
+    'POST',
+    `/_apis/wit/workitems/$${encodeURIComponent(itemType)}?api-version=7.1`,
+    patch,
+    'application/json-patch+json'
+  );
+}
+
+
 function serve(p,res){
   const rel=p==='/'?'index.html':p.replace(/^\/+/,'');
   const fp=path.normalize(path.join(PUBLIC,rel));
@@ -206,7 +327,7 @@ const server=http.createServer(async(req,res)=>{
 
     if(req.method==='GET'&&u.pathname==='/api/health'){
       return send(res,200,{
-        ok:true,version:'3.1.0',
+        ok:true,version:'3.2.0',
         mode:azdoConfigured()?'AZURE_DEVOPS':'DEMO',
         environment:process.env.WEBSITE_SITE_NAME?'AZURE_APP_SERVICE':'LOCAL_OR_CODESPACES',
         azureDevOpsConfigured:azdoConfigured()
@@ -234,7 +355,29 @@ const server=http.createServer(async(req,res)=>{
       return send(res,200,normalizePlan(b));
     }
 
-    if(req.method==='POST'&&u.pathname==='/api/approve-plan'){
+    
+    if(req.method==='POST'&&u.pathname==='/api/discussion-summary'){
+      const b=await readBody(req);
+      if(!b.discussion_notes&&!b.notes)return send(res,400,{error:'discussion_notes is required'});
+      return send(res,200,extractDiscussion(b.discussion_notes||b.notes));
+    }
+
+    if(req.method==='POST'&&u.pathname==='/api/devops/create-discussion-item'){
+      const b=await readBody(req);
+      if(b.approved!==true)return send(res,400,{error:'Explicit PM approval is required.'});
+      const created=await createDiscussionWorkItem(b);
+      return send(res,200,{
+        message:'Discussion item created in Azure DevOps.',
+        item:{
+          id:created.id,
+          title:created.fields?.['System.Title']||b.title,
+          type:created.fields?.['System.WorkItemType']||b.itemType,
+          state:created.fields?.['System.State']||'New'
+        }
+      });
+    }
+
+if(req.method==='POST'&&u.pathname==='/api/approve-plan'){
       const b=await readBody(req);
       if(!b.plan)return send(res,400,{error:'plan is required'});
       if(b.approved!==true)return send(res,400,{error:'Explicit PM approval is required.'});
@@ -250,4 +393,4 @@ const server=http.createServer(async(req,res)=>{
   }
 });
 
-server.listen(PORT,HOST,()=>console.log(`Project Command Center v3.1 running on ${HOST}:${PORT}`));
+server.listen(PORT,HOST,()=>console.log(`Project Command Center v3.2 running on ${HOST}:${PORT}`));

@@ -1,6 +1,6 @@
 {
   "name": "project-command-center",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "private": true,
   "scripts": {
     "start": "node server.js",
@@ -9,5 +9,5 @@
   "engines": {
     "node": ">=18"
   },
-  "description": "Project Command Center v3.1 - full dashboard with live Azure DevOps integration"
+  "description": "Project Command Center v3.2 - discussion intelligence to Azure DevOps with PMO routing"
 }

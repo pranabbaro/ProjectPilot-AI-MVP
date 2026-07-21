@@ -5,3 +5,14 @@
 .refresh-devops{margin-top:12px}
 .approval-actions{display:flex;align-items:center;gap:12px;margin-top:12px}
 #approvalStatus{font-size:12px;color:#667287}
+
+.discussion-actions{display:flex;align-items:center;gap:10px;margin-top:10px}
+#discussionStatus{font-size:11px;color:#68758f}
+.discussion-card{border:1px solid #e8ecf3;border-radius:10px;padding:11px;background:#fbfcff}
+.discussion-card .kind{font-size:9px;font-weight:900;letter-spacing:1px;color:#6469df}
+.discussion-card .title{font-size:12px;color:#3f4a61;margin:6px 0}
+.discussion-card .meta{font-size:10px;color:#7b879a;margin-bottom:8px}
+.discussion-card .create-actions{display:flex;gap:7px;flex-wrap:wrap}
+.discussion-card .create-actions button{border:1px solid #d9dfeb;background:white;border-radius:8px;padding:6px 9px;font-size:10px;font-weight:700;cursor:pointer}
+.discussion-card .create-actions button.primary-create{background:#5b5cf0;color:#fff;border-color:#5b5cf0}
+.discussion-success{padding:9px;border-radius:8px;background:#ecfaf3;color:#237157;font-size:11px;margin-top:8px}

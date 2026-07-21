@@ -93,3 +93,99 @@ async function approveAndCreate(){
 }
 
 loadDevOpsWorkItems();
+
+let latestDiscussionAnalysis=null;
+
+async function summarizeDiscussion(){
+  discussionStatus.textContent='Analysing...';
+  discussionOutput.innerHTML='<div class="loading-row">Analysing project discussion...</div>';
+  try{
+    latestDiscussionAnalysis=await api('/api/discussion-summary',{
+      method:'POST',
+      body:JSON.stringify({discussion_notes:discussionText.value})
+    });
+
+    const sections=[];
+
+    for(const d of latestDiscussionAnalysis.decisions||[]){
+      sections.push(`
+        <div class="discussion-card">
+          <div class="kind">DECISION</div>
+          <div class="title">${esc(d.title)}</div>
+        </div>`);
+    }
+
+    for(const a of latestDiscussionAnalysis.actions||[]){
+      sections.push(`
+        <div class="discussion-card">
+          <div class="kind">ACTION</div>
+          <div class="title">${esc(a.title)}</div>
+          <div class="meta">Owner: ${esc(a.owner||'PMO')}${a.target?' • Target: '+esc(a.target):''}</div>
+          <div class="create-actions">
+            <button class="primary-create" onclick='createDiscussionItem(${JSON.stringify(JSON.stringify(a))},"Task")'>Create Task in Azure DevOps</button>
+          </div>
+        </div>`);
+    }
+
+    for(const r of latestDiscussionAnalysis.requirements||[]){
+      sections.push(`
+        <div class="discussion-card">
+          <div class="kind">NEW REQUIREMENT</div>
+          <div class="title">${esc(r.title)}</div>
+          <div class="meta">Suggested work item: User Story</div>
+          <div class="create-actions">
+            <button class="primary-create" onclick='createDiscussionItem(${JSON.stringify(JSON.stringify(r))},"User Story")'>Create User Story in Azure DevOps</button>
+          </div>
+        </div>`);
+    }
+
+    for(const r of latestDiscussionAnalysis.risks||[]){
+      sections.push(`
+        <div class="discussion-card">
+          <div class="kind">RISK</div>
+          <div class="title">${esc(r.title)}</div>
+        </div>`);
+    }
+
+    discussionOutput.innerHTML=sections.length
+      ? sections.join('')
+      : '<div class="discussion-card"><div class="title">No structured actions or risks detected.</div></div>';
+
+    discussionStatus.textContent='Discussion analysed';
+  }catch(e){
+    discussionOutput.innerHTML=`<div class="discussion-card"><div class="title">Unable to analyse discussion: ${esc(e.message)}</div></div>`;
+    discussionStatus.textContent='Analysis failed';
+  }
+}
+
+async function createDiscussionItem(serialized,itemType){
+  const item=JSON.parse(serialized);
+  if(!devOpsConfigured){
+    alert('Azure DevOps is not configured yet.');
+    return;
+  }
+  if(!confirm(`PM approval: Create this ${itemType} in Azure DevOps and route it to PMO?`))return;
+
+  try{
+    const result=await api('/api/devops/create-discussion-item',{
+      method:'POST',
+      body:JSON.stringify({
+        approved:true,
+        itemType,
+        title:item.title,
+        owner:item.owner||'PMO',
+        target:item.target||'',
+        source:item.source||'Project Discussion',
+        description:'Created from Latest Discussion Summary in Project Command Center.'
+      })
+    });
+
+    const note=document.createElement('div');
+    note.className='discussion-success';
+    note.textContent=`Created ${result.item.type} #${result.item.id}: ${result.item.title}`;
+    discussionOutput.prepend(note);
+    await loadDevOpsWorkItems();
+  }catch(e){
+    alert(`Unable to create Azure DevOps item: ${e.message}`);
+  }
+}

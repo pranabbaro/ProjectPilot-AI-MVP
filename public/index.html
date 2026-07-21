@@ -108,12 +108,13 @@
             </div>
             <span class="ai-pill">AI summarized</span>
           </div>
-          <textarea id="discussionText" class="discussion-box">Manager approval workflow requires escalation after 48 hours. Reporting dashboard should show pending, approved and rejected requests. Security team requested role-based access validation before production.</textarea>
-          <button class="small-btn" onclick="summarizeDiscussion()">Update Discussion</button>
+          <textarea id="discussionText" class="discussion-box">Manager approval workflow requires escalation after 48 hours. Reporting dashboard should show pending, approved and rejected requests. PMO will coordinate RBAC validation with Security before Sprint 4. Security review is pending and may delay production readiness.</textarea>
+          <div class="discussion-actions">
+            <button class="small-btn" onclick="summarizeDiscussion()">Analyse Discussion</button>
+            <span id="discussionStatus"></span>
+          </div>
           <div id="discussionOutput" class="discussion-output">
-            <div><b>Decision</b><span>48-hour escalation will be included in the approval workflow.</span></div>
-            <div><b>Action</b><span>Validate RBAC design with Security team.</span></div>
-            <div><b>Risk</b><span>Reporting scope may affect Sprint 4 timeline.</span></div>
+            <div><b>Ready</b><span>Paste or enter project discussion notes and click Analyse Discussion.</span></div>
           </div>
         </article>
       </section>
