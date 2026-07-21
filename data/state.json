@@ -1,0 +1,33 @@
+{
+  "project": {
+    "name": "Employee Service Portal",
+    "status": "Attention Required",
+    "sprint": "Sprint 1",
+    "progress": 62,
+    "epics": 1,
+    "features": 5,
+    "stories": 18,
+    "tasks": 63,
+    "completed": 32,
+    "active": 21,
+    "blocked": 4,
+    "risks": 3,
+    "overdue": 5,
+    "compliance": 82
+  },
+  "meeting": {
+    "title": "Employee Service Portal – Project Discussion",
+    "date": "Tomorrow",
+    "time": "11:00 AM",
+    "attendees": ["Project Manager", "Product Owner", "Technical Lead", "Scrum Master"],
+    "agenda": ["Sprint progress", "Blocked work items", "Manager approval feature", "Security review status", "Upcoming decisions"]
+  },
+  "discussion": {
+    "decisions": ["Manager approval feature approved", "Email notification moved to Phase 2"],
+    "actions": [
+      {"title": "Complete approval UI", "owner": "Rahul", "target": "Friday"},
+      {"title": "Develop approval API", "owner": "Priya", "target": "Sprint 1"}
+    ],
+    "risks": ["Security review is pending"]
+  }
+}

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ProjectPilot AI MVP</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="brand">ProjectPilot AI</div>
+      <div class="tagline">Plan, execute, govern, and hand over projects from one command center.</div>
+    </div>
+    <span class="badge">DEMO MODE</span>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <h1>Project Delivery Command Center</h1>
+        <p>Arrange calls, capture project discussions, generate delivery plans, and prepare project handover documentation.</p>
+      </div>
+      <div class="hero-actions">
+        <button data-scroll="meeting">Arrange Project Call</button>
+        <button class="secondary" data-scroll="discussion">Add Discussion Notes</button>
+        <button class="secondary" data-scroll="planner">Generate Project Plan</button>
+      </div>
+    </section>
+
+    <section id="metrics" class="metrics"></section>
+
+    <div class="grid two">
+      <section class="card">
+        <div class="card-header"><h2>Upcoming Meeting</h2><span id="meetingStatus" class="status">Ready</span></div>
+        <div id="meetingSummary"></div>
+      </section>
+      <section class="card">
+        <div class="card-header"><h2>Latest Project Discussion</h2><span class="status attention">Needs review</span></div>
+        <div id="discussionSummary"></div>
+      </section>
+    </div>
+
+    <section id="meeting" class="card section-gap">
+      <div class="card-header"><h2>Arrange Project Call</h2><span class="eyebrow">Calendar simulation</span></div>
+      <div class="form-grid">
+        <label>Meeting title<input id="meetingTitle" value="Employee Service Portal – Project Discussion" /></label>
+        <label>Date<input id="meetingDate" value="Tomorrow" /></label>
+        <label>Time<input id="meetingTime" value="11:00 AM" /></label>
+        <label>Attendees<input id="meetingAttendees" value="Project Manager, Product Owner, Technical Lead, Scrum Master" /></label>
+      </div>
+      <button id="arrangeMeeting">Arrange Call</button>
+      <div id="meetingResult" class="result hidden"></div>
+    </section>
+
+    <section id="planner" class="card section-gap">
+      <div class="card-header"><h2>Prompt to Project Plan</h2><span class="eyebrow">Epic → Feature → Story → Task</span></div>
+      <textarea id="planPrompt" rows="5">Build an Employee Service Portal where employees can submit IT requests, managers can approve or reject requests, and the service team can track request status. Include notifications and reporting.</textarea>
+      <div class="button-row"><button id="generatePlan">Generate Plan</button><button id="approvePlan" class="secondary" disabled>Approve Demo Plan</button></div>
+      <div id="planResult" class="result hidden"></div>
+    </section>
+
+    <section id="discussion" class="card section-gap">
+      <div class="card-header"><h2>Project Discussion Intelligence</h2><span class="eyebrow">Paste Copilot notes</span></div>
+      <textarea id="notes" rows="7">The team approved the manager approval workflow.
+Rahul will complete the approval UI by Friday.
+Priya will develop the approval API during Sprint 1.
+The security review is pending and may delay testing.
+The email notification feature will be moved to Phase 2.</textarea>
+      <div class="button-row"><button id="analyzeNotes">Analyze Notes</button><button id="generateMom">Generate MOM</button></div>
+      <div id="discussionResult" class="result hidden"></div>
+    </section>
+
+    <section class="card section-gap">
+      <div class="card-header"><h2>Project Closure</h2><span class="eyebrow">Handover readiness</span></div>
+      <button id="generateHandover">Generate Handover Assessment</button>
+      <div id="handoverResult" class="result hidden"></div>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

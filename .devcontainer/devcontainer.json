@@ -1,0 +1,12 @@
+{
+  "name": "ProjectPilot AI MVP",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-20-bookworm",
+  "forwardPorts": [7071],
+  "portsAttributes": {
+    "7071": {
+      "label": "ProjectPilot AI MVP",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "postCreateCommand": "node --version"
+}
