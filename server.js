@@ -1,8 +1,8 @@
 
 const http=require('http');
+const https=require('https');
 const fs=require('fs');
 const path=require('path');
-const https=require('https');
 
 const PORT=Number(process.env.PORT||7071);
 const HOST=process.env.HOST||'0.0.0.0';
@@ -18,13 +18,12 @@ function send(res,status,body,type='application/json'){
   });
   res.end(type.includes('json')?JSON.stringify(body):body);
 }
-
 function readBody(req){
   return new Promise((resolve,reject)=>{
     let d='';
     req.on('data',c=>{
       d+=c;
-      if(d.length>1024*1024){reject(Error('Request body too large'));req.destroy();}
+      if(d.length>20*1024*1024){reject(Error('Request body too large'));req.destroy();}
     });
     req.on('end',()=>{
       try{resolve(d?JSON.parse(d):{})}
@@ -33,24 +32,19 @@ function readBody(req){
     req.on('error',reject);
   });
 }
-
-function titleCase(s){
-  return String(s||'').replace(/\w\S*/g,w=>w[0].toUpperCase()+w.slice(1).toLowerCase());
-}
+function titleCase(s){return String(s||'').replace(/\w\S*/g,w=>w[0].toUpperCase()+w.slice(1).toLowerCase())}
 function inferProjectName(q){
   const m=String(q||'').match(/(?:build|create|plan|implement|migrate|deploy)\s+(?:an?\s+)?(.+?)(?:\s+(?:where|that|with|including|from|for|to)\b|[.,]|$)/i);
   return m?titleCase(m[1]).slice(0,100):'New Project';
 }
 function fallbackPlan(q){
   const n=inferProjectName(q);
-  return {
-    projectName:n,projectObjective:q,estimatedSprints:4,status:'DRAFT',source:'PROJECT_COMMAND_CENTER',
+  return {projectName:n,projectObjective:q,estimatedSprints:4,status:'DRAFT',source:'PROJECT_COMMAND_CENTER',
     epic:{title:n,features:[
       {title:'Discovery and Planning',userStories:[{title:'Define delivery requirements',acceptanceCriteria:['Project scope is documented','Stakeholders approve delivery requirements'],recommendedSprint:'Sprint 1',dependencies:[],tasks:[{title:'Confirm project scope'},{title:'Document requirements'},{title:'Review technical dependencies'}]}]},
       {title:'Implementation',userStories:[{title:'Deliver the core solution',acceptanceCriteria:['Core solution is implemented','Functional validation is completed'],recommendedSprint:'Sprint 2',dependencies:['Discovery and Planning'],tasks:[{title:'Implement core solution'},{title:'Perform functional testing'},{title:'Resolve implementation findings'}]}]},
       {title:'Handover and Closure',userStories:[{title:'Complete operational handover',acceptanceCriteria:['Handover documentation is complete','Operations accepts the handover'],recommendedSprint:'Sprint 4',dependencies:['Implementation'],tasks:[{title:'Prepare handover documentation'},{title:'Complete knowledge transfer'},{title:'Obtain project sign-off'}]}]}
-    ]},risks:[]
-  };
+    ]},risks:[]};
 }
 function normalizePlan(b){
   if(b.plan)b=b.plan;
@@ -60,9 +54,7 @@ function normalizePlan(b){
   return {
     projectName:b.projectName||e.title||inferProjectName(q),
     projectObjective:b.projectObjective||q||'',
-    estimatedSprints:b.estimatedSprints||4,
-    status:'DRAFT',
-    source:'MOVEWORKS_AI',
+    estimatedSprints:b.estimatedSprints||4,status:'DRAFT',source:'MOVEWORKS_AI',
     epic:{title:e.title||b.projectName,features:(e.features||[]).map(f=>({
       title:f.title||f.name||'Untitled Feature',
       userStories:(f.userStories||f.user_stories||f.stories||[]).map(s=>({
@@ -80,243 +72,211 @@ function normalizePlan(b){
 function azdoConfigured(){
   return !!(process.env.AZDO_ORG&&process.env.AZDO_PROJECT&&process.env.AZDO_PAT);
 }
-function azdoBasePath(){
-  return `/${encodeURIComponent(process.env.AZDO_ORG)}/${encodeURIComponent(process.env.AZDO_PROJECT)}`;
-}
-function azdoRequest(method,apiPath,payload,contentType='application/json'){
+function azdoBase(){return `/${encodeURIComponent(process.env.AZDO_ORG)}/${encodeURIComponent(process.env.AZDO_PROJECT)}`}
+function azdoReq(method,apiPath,payload,contentType='application/json'){
   return new Promise((resolve,reject)=>{
-    const data=payload===undefined||payload===null?'':JSON.stringify(payload);
+    const data=payload==null?'':JSON.stringify(payload);
     const auth=Buffer.from(':'+process.env.AZDO_PAT).toString('base64');
     const headers={Authorization:`Basic ${auth}`,Accept:'application/json'};
-    if(data){
-      headers['Content-Type']=contentType;
-      headers['Content-Length']=Buffer.byteLength(data);
-    }
-    const req=https.request({
-      hostname:'dev.azure.com',
-      path:`${azdoBasePath()}${apiPath}`,
-      method,
-      headers
-    },res=>{
-      let raw='';
-      res.on('data',c=>raw+=c);
-      res.on('end',()=>{
-        let parsed={};
-        try{parsed=raw?JSON.parse(raw):{}}
-        catch{parsed={raw}}
-        if(res.statusCode>=200&&res.statusCode<300)resolve(parsed);
-        else reject(Error(`Azure DevOps ${res.statusCode}: ${raw.slice(0,900)}`));
+    if(data){headers['Content-Type']=contentType;headers['Content-Length']=Buffer.byteLength(data)}
+    const r=https.request({hostname:'dev.azure.com',path:`${azdoBase()}${apiPath}`,method,headers},resp=>{
+      let raw='';resp.on('data',c=>raw+=c);resp.on('end',()=>{
+        let out={};try{out=raw?JSON.parse(raw):{}}catch{out={raw}}
+        if(resp.statusCode>=200&&resp.statusCode<300)resolve(out);
+        else reject(Error(`Azure DevOps ${resp.statusCode}: ${raw.slice(0,1000)}`));
       });
     });
-    req.on('error',reject);
-    if(data)req.write(data);
-    req.end();
+    r.on('error',reject);if(data)r.write(data);r.end();
   });
 }
-
-async function queryWorkItems(){
-  const top=Math.min(Number(process.env.AZDO_DASHBOARD_TOP||30),100);
-  const wiql={
-    query:`SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project AND [System.State] <> 'Removed' ORDER BY [System.ChangedDate] DESC`
-  };
-  const q=await azdoRequest('POST',`/_apis/wit/wiql?$top=${top}&api-version=7.1`,wiql);
+async function queryAllWorkItems(){
+  const wiql={query:`SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project AND [System.State] <> 'Removed' ORDER BY [System.ChangedDate] DESC`};
+  const q=await azdoReq('POST',`/_apis/wit/wiql?$top=${Number(process.env.AZDO_DASHBOARD_TOP||500)}&api-version=7.1`,wiql);
   const ids=(q.workItems||[]).map(x=>x.id);
   if(!ids.length)return [];
-  const fields=[
-    'System.Id','System.Title','System.WorkItemType','System.State',
-    'System.AssignedTo','System.IterationPath','System.ChangedDate'
-  ].join(',');
-  const data=await azdoRequest('GET',`/_apis/wit/workitems?ids=${ids.join(',')}&fields=${encodeURIComponent(fields)}&api-version=7.1`);
-  return (data.value||[]).map(w=>({
-    id:w.id,
-    title:w.fields?.['System.Title']||'',
-    type:w.fields?.['System.WorkItemType']||'',
-    state:w.fields?.['System.State']||'',
-    assignedTo:w.fields?.['System.AssignedTo']?.displayName||w.fields?.['System.AssignedTo']||'',
-    iteration:w.fields?.['System.IterationPath']||'',
-    changedDate:w.fields?.['System.ChangedDate']||''
-  }));
-}
 
-function patchField(path,value){return {op:'add',path,value};}
+  const fields=[
+    'System.Id','System.Title','System.WorkItemType','System.State','System.AssignedTo',
+    'System.IterationPath','System.AreaPath','System.Tags','System.Description','System.ChangedDate',
+    'Microsoft.VSTS.Common.AcceptanceCriteria','Microsoft.VSTS.Scheduling.StartDate','Microsoft.VSTS.Scheduling.FinishDate'
+  ].join(',');
+
+  const chunks=[];
+  for(let i=0;i<ids.length;i+=200)chunks.push(ids.slice(i,i+200));
+  const out=[];
+  for(const chunk of chunks){
+    const data=await azdoReq('GET',`/_apis/wit/workitems?ids=${chunk.join(',')}&fields=${encodeURIComponent(fields)}&api-version=7.1`);
+    for(const w of data.value||[]){
+      const f=w.fields||{};
+      out.push({
+        id:w.id,
+        title:f['System.Title']||'',
+        type:f['System.WorkItemType']||'',
+        state:f['System.State']||'',
+        assignedTo:f['System.AssignedTo']?.displayName||f['System.AssignedTo']||'',
+        iteration:f['System.IterationPath']||'',
+        area:f['System.AreaPath']||'',
+        tags:f['System.Tags']||'',
+        description:f['System.Description']||'',
+        acceptanceCriteria:f['Microsoft.VSTS.Common.AcceptanceCriteria']||'',
+        startDate:f['Microsoft.VSTS.Scheduling.StartDate']||'',
+        finishDate:f['Microsoft.VSTS.Scheduling.FinishDate']||'',
+        changedDate:f['System.ChangedDate']||''
+      });
+    }
+  }
+  return out;
+}
+function complianceFor(w){
+  const type=String(w.type||'').toLowerCase();
+  const checks={
+    tags:!!String(w.tags||'').trim(),
+    sprint:!!String(w.iteration||'').trim(),
+    description:!!String(w.description||'').replace(/<[^>]*>/g,'').trim(),
+    assignee:!!String(w.assignedTo||'').trim(),
+    dates:!!(w.startDate||w.finishDate),
+    acceptance:true
+  };
+  // Acceptance Criteria is expected for User Story/PBI; not required for task/feature/epic.
+  if(type.includes('story')||type.includes('backlog item'))checks.acceptance=!!String(w.acceptanceCriteria||'').replace(/<[^>]*>/g,'').trim();
+
+  const applicable=['tags','sprint','description','assignee'];
+  if(type.includes('story')||type.includes('backlog item'))applicable.push('acceptance');
+  // Date compliance: we consider presence of iteration path sufficient for task/feature unless explicit start/finish fields exist.
+  if(type==='epic'||type==='feature')applicable.push('dates');
+
+  const passed=applicable.filter(k=>checks[k]).length;
+  const score=Math.round((passed/applicable.length)*100);
+  return {...checks,score,compliant:score===100};
+}
+function buildCompliance(items){
+  const rows=items.map(w=>({...w,compliance:complianceFor(w)}));
+  const overall=rows.length?Math.round(rows.reduce((s,x)=>s+x.compliance.score,0)/rows.length):0;
+  const nonCompliant=rows.filter(x=>!x.compliance.compliant).length;
+  const typeCounts={};
+  for(const x of rows)typeCounts[x.type]=(typeCounts[x.type]||0)+1;
+  return {overall,nonCompliant,total:rows.length,typeCounts,items:rows};
+}
+function extractDiscussion(notes){
+  const text=String(notes||'').trim();
+  const sentences=text.split(/(?<=[.!?])\s+|\n+/).map(x=>x.trim()).filter(Boolean);
+  const decisions=[],actions=[],risks=[],requirements=[];
+  for(const s of sentences){
+    const l=s.toLowerCase();
+    if(/approved|agreed|decided|confirmed|deferred|will be included/.test(l))decisions.push({title:s});
+    if(/\bwill\b|action|coordinate|validate|review|complete|prepare|follow up|schedule|confirm|pmo/.test(l))actions.push({title:s,owner:'PMO',suggestedType:'Task'});
+    if(/risk|may delay|could delay|impact|blocked|pending|dependency|concern/.test(l))risks.push({title:s});
+    if(/must|should|requires|requirement|needs to|need to|feature/.test(l))requirements.push({title:s,suggestedType:'User Story'});
+  }
+  return {summary:sentences.slice(0,5).join(' '),decisions,actions,risks,requirements};
+}
+function buildMOM(notes){
+  const a=extractDiscussion(notes);
+  return {
+    title:'Minutes of Meeting',
+    generatedAt:new Date().toISOString(),
+    discussionSummary:a.summary,
+    decisions:a.decisions,
+    actions:a.actions,
+    risks:a.risks,
+    requirements:a.requirements,
+    nextSteps:[
+      ...a.actions.map(x=>x.title),
+      ...a.requirements.map(x=>`Review requirement: ${x.title}`)
+    ].slice(0,8)
+  };
+}
+function patchField(p,v){return {op:'add',path:p,value:v}}
 async function createWorkItem(type,title,parentId,extra={}){
   const patch=[
     patchField('/fields/System.Title',title),
-    patchField('/fields/System.Tags','Project-Command-Center;PM-Approved')
+    patchField('/fields/System.Tags',extra.tags||'Project-Command-Center;PM-Approved')
   ];
+  if(extra.description)patch.push(patchField('/fields/System.Description',extra.description));
   if(process.env.AZDO_AREA)patch.push(patchField('/fields/System.AreaPath',process.env.AZDO_AREA));
   if(extra.iteration||process.env.AZDO_ITERATION)patch.push(patchField('/fields/System.IterationPath',extra.iteration||process.env.AZDO_ITERATION));
-  if(extra.description)patch.push(patchField('/fields/System.Description',extra.description));
-  if(parentId){
-    patch.push({
-      op:'add',
-      path:'/relations/-',
-      value:{
-        rel:'System.LinkTypes.Hierarchy-Reverse',
-        url:`https://dev.azure.com/${process.env.AZDO_ORG}/_apis/wit/workItems/${parentId}`,
-        attributes:{comment:'Linked by Project Command Center after PM approval'}
-      }
-    });
-  }
-  return azdoRequest('POST',`/_apis/wit/workitems/$${encodeURIComponent(type)}?api-version=7.1`,patch,'application/json-patch+json');
+  if(extra.assignedTo)patch.push(patchField('/fields/System.AssignedTo',extra.assignedTo));
+  if(parentId)patch.push({op:'add',path:'/relations/-',value:{rel:'System.LinkTypes.Hierarchy-Reverse',url:`https://dev.azure.com/${process.env.AZDO_ORG}/_apis/wit/workItems/${parentId}`}});
+  return azdoReq('POST',`/_apis/wit/workitems/$${encodeURIComponent(type)}?api-version=7.1`,patch,'application/json-patch+json');
 }
-
 async function createHierarchy(plan){
   const storyType=process.env.AZDO_STORY_TYPE||'User Story';
-  const created=[];
-  const epic=await createWorkItem('Epic',plan.epic.title,null,{description:plan.projectObjective||''});
-  created.push({type:'Epic',id:epic.id,title:plan.epic.title});
-
-  for(const feature of plan.epic.features||[]){
-    const f=await createWorkItem('Feature',feature.title,epic.id);
-    created.push({type:'Feature',id:f.id,title:feature.title});
-
-    for(const story of feature.userStories||[]){
-      const iteration=story.recommendedSprint && process.env.AZDO_ITERATION_PREFIX
-        ? `${process.env.AZDO_ITERATION_PREFIX}\\${story.recommendedSprint}`
-        : undefined;
-      const desc=(story.acceptanceCriteria||[]).length
-        ? `<b>Acceptance Criteria</b><br>${story.acceptanceCriteria.map(x=>String(x)).join('<br>')}`
-        : '';
-      const s=await createWorkItem(storyType,story.title,f.id,{iteration,description:desc});
-      created.push({type:storyType,id:s.id,title:story.title});
-
-      for(const task of story.tasks||[]){
-        const t=await createWorkItem('Task',task.title,s.id,{iteration});
-        created.push({type:'Task',id:t.id,title:task.title});
-      }
+  const out=[];
+  const epic=await createWorkItem('Epic',plan.epic.title,null,{description:plan.projectObjective});
+  out.push({type:'Epic',id:epic.id,title:plan.epic.title});
+  for(const f of plan.epic.features||[]){
+    const fi=await createWorkItem('Feature',f.title,epic.id);out.push({type:'Feature',id:fi.id,title:f.title});
+    for(const s of f.userStories||[]){
+      const si=await createWorkItem(storyType,s.title,fi.id,{description:(s.acceptanceCriteria||[]).join('<br>')});out.push({type:storyType,id:si.id,title:s.title});
+      for(const t of s.tasks||[]){const ti=await createWorkItem('Task',t.title,si.id);out.push({type:'Task',id:ti.id,title:t.title})}
     }
   }
-  return created;
+  return out;
 }
 
-
-function extractDiscussion(notes){
-  const text=String(notes||'').trim();
-  if(!text)return {summary:'',decisions:[],actions:[],risks:[],requirements:[]};
-
-  const sentences=text
-    .split(/(?<=[.!?])\s+|\n+/)
-    .map(x=>x.trim())
-    .filter(Boolean);
-
-  const decisions=[],actions=[],risks=[],requirements=[];
-
-  for(const s of sentences){
-    const lower=s.toLowerCase();
-
-    if(/approved|agreed|decided|will use|will be included|deferred|moved to phase|confirmed/.test(lower)){
-      decisions.push({title:s,source:'Project Discussion'});
-    }
-
-    if(/\bwill\b|action|coordinate|validate|review|complete|prepare|follow up|follow-up|schedule|confirm|owner|pm[o0]/.test(lower)){
-      actions.push({
-        title:s.replace(/^action[:\-\s]*/i,''),
-        owner:/pmo/.test(lower)?'PMO':'PMO',
-        target:/before sprint\s*\d+/i.test(s)?(s.match(/before sprint\s*\d+/i)||[''])[0]:'',
-        source:'Project Discussion',
-        suggestedType:'Task'
-      });
-    }
-
-    if(/risk|may delay|could delay|impact|blocked|pending|dependency|concern|security review/.test(lower)){
-      risks.push({title:s,source:'Project Discussion'});
-    }
-
-    if(/must|should|requires|requirement|needs to|need to|dashboard should|feature/.test(lower)){
-      requirements.push({
-        title:s,
-        source:'Project Discussion',
-        suggestedType:'User Story'
-      });
-    }
-  }
-
-  // de-duplicate by title
-  const dedupe = arr => {
-    const seen=new Set();
-    return arr.filter(x=>{
-      const k=(x.title||'').toLowerCase();
-      if(seen.has(k))return false;
-      seen.add(k);return true;
-    });
+function graphConfigured(){return !!(process.env.GRAPH_TENANT_ID&&process.env.GRAPH_CLIENT_ID&&process.env.GRAPH_CLIENT_SECRET&&process.env.SHAREPOINT_SITE_ID&&process.env.SHAREPOINT_DRIVE_ID)}
+function tokenRequest(){
+  return new Promise((resolve,reject)=>{
+    const body=new URLSearchParams({
+      client_id:process.env.GRAPH_CLIENT_ID,
+      client_secret:process.env.GRAPH_CLIENT_SECRET,
+      scope:'https://graph.microsoft.com/.default',
+      grant_type:'client_credentials'
+    }).toString();
+    const r=https.request({
+      hostname:'login.microsoftonline.com',
+      path:`/${encodeURIComponent(process.env.GRAPH_TENANT_ID)}/oauth2/v2.0/token`,
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded','Content-Length':Buffer.byteLength(body)}
+    },resp=>{let raw='';resp.on('data',c=>raw+=c);resp.on('end',()=>{let j={};try{j=JSON.parse(raw)}catch{};if(resp.statusCode>=200&&resp.statusCode<300&&j.access_token)resolve(j.access_token);else reject(Error(`Graph token error ${resp.statusCode}: ${raw.slice(0,600)}`))})});
+    r.on('error',reject);r.write(body);r.end();
+  });
+}
+async function uploadSharePoint(filename,base64){
+  if(!graphConfigured())throw Error('SharePoint integration is not configured.');
+  const token=await tokenRequest();
+  const buf=Buffer.from(base64,'base64');
+  if(buf.length>10*1024*1024)throw Error('MVP upload limit is 10 MB.');
+  const folder=(process.env.SHAREPOINT_FOLDER_PATH||'Project Command Center').replace(/^\/+|\/+$/g,'');
+  const fullPath=`${folder}/${filename}`.split('/').map(encodeURIComponent).join('/');
+  return new Promise((resolve,reject)=>{
+    const r=https.request({
+      hostname:'graph.microsoft.com',
+      path:`/v1.0/sites/${encodeURIComponent(process.env.SHAREPOINT_SITE_ID)}/drives/${encodeURIComponent(process.env.SHAREPOINT_DRIVE_ID)}/root:/${fullPath}:/content`,
+      method:'PUT',
+      headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/octet-stream','Content-Length':buf.length}
+    },resp=>{let raw='';resp.on('data',c=>raw+=c);resp.on('end',()=>{let j={};try{j=raw?JSON.parse(raw):{}}catch{};if(resp.statusCode>=200&&resp.statusCode<300)resolve(j);else reject(Error(`SharePoint ${resp.statusCode}: ${raw.slice(0,700)}`))})});
+    r.on('error',reject);r.write(buf);r.end();
+  });
+}
+async function uploadDevOpsRepo(filename,base64){
+  if(!azdoConfigured()||!process.env.AZDO_REPO_ID)throw Error('Azure DevOps repository integration is not configured.');
+  const branch=process.env.AZDO_REPO_BRANCH||'refs/heads/main';
+  const refName=branch.replace(/^refs\/heads\//,'');
+  const refs=await azdoReq('GET',`/_apis/git/repositories/${encodeURIComponent(process.env.AZDO_REPO_ID)}/refs?filter=heads/${encodeURIComponent(refName)}&api-version=7.1`);
+  const ref=(refs.value||[])[0];
+  if(!ref)throw Error(`Branch ${branch} not found.`);
+  const folder=(process.env.AZDO_REPO_FOLDER_PATH||'project-documents').replace(/^\/+|\/+$/g,'');
+  const itemPath=`/${folder}/${filename}`;
+  const payload={
+    refUpdates:[{name:branch,oldObjectId:ref.objectId}],
+    commits:[{
+      comment:`Upload ${filename} from Project Command Center`,
+      changes:[{
+        changeType:'add',
+        item:{path:itemPath},
+        newContent:{content:base64,contentType:'base64encoded'}
+      }]
+    }]
   };
-
-  const summary=sentences.slice(0,4).join(' ');
-  return {
-    summary,
-    decisions:dedupe(decisions),
-    actions:dedupe(actions),
-    risks:dedupe(risks),
-    requirements:dedupe(requirements)
-  };
+  return azdoReq('POST',`/_apis/git/repositories/${encodeURIComponent(process.env.AZDO_REPO_ID)}/pushes?api-version=7.1`,payload);
 }
-
-async function createDiscussionWorkItem(payload){
-  if(!azdoConfigured())throw Error('Azure DevOps is not configured.');
-
-  const itemType=payload.itemType==='User Story'
-    ? (process.env.AZDO_STORY_TYPE||'User Story')
-    : 'Task';
-
-  const title=String(payload.title||'').trim();
-  if(!title)throw Error('Work item title is required.');
-
-  const parentId=payload.parentId?Number(payload.parentId):null;
-  const owner=payload.owner||'PMO';
-  const description=[
-    payload.description||'',
-    `<br><b>Source:</b> ${payload.source||'Project Discussion'}`,
-    `<br><b>Owner:</b> ${owner}`,
-    payload.target?`<br><b>Target:</b> ${payload.target}`:''
-  ].join('');
-
-  const patch=[
-    patchField('/fields/System.Title',title),
-    patchField('/fields/System.Tags','Project-Command-Center;Project-Discussion;PM-Approved'),
-    patchField('/fields/System.Description',description)
-  ];
-
-  const assignee=process.env.AZDO_PMO_ASSIGNEE;
-  if(assignee){
-    patch.push(patchField('/fields/System.AssignedTo',assignee));
-  }
-
-  if(process.env.AZDO_AREA){
-    patch.push(patchField('/fields/System.AreaPath',process.env.AZDO_AREA));
-  }
-
-  if(process.env.AZDO_ITERATION){
-    patch.push(patchField('/fields/System.IterationPath',process.env.AZDO_ITERATION));
-  }
-
-  if(parentId){
-    patch.push({
-      op:'add',
-      path:'/relations/-',
-      value:{
-        rel:'System.LinkTypes.Hierarchy-Reverse',
-        url:`https://dev.azure.com/${process.env.AZDO_ORG}/_apis/wit/workItems/${parentId}`,
-        attributes:{comment:'Linked from Project Discussion by Project Command Center'}
-      }
-    });
-  }
-
-  return azdoRequest(
-    'POST',
-    `/_apis/wit/workitems/$${encodeURIComponent(itemType)}?api-version=7.1`,
-    patch,
-    'application/json-patch+json'
-  );
-}
-
 
 function serve(p,res){
   const rel=p==='/'?'index.html':p.replace(/^\/+/,'');
   const fp=path.normalize(path.join(PUBLIC,rel));
   if(!fp.startsWith(PUBLIC)||!fs.existsSync(fp))return send(res,404,{error:'Not found'});
-  const ext=path.extname(fp).toLowerCase();
-  const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'application/javascript; charset=utf-8'};
+  const ext=path.extname(fp).toLowerCase(),types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'application/javascript; charset=utf-8'};
   return send(res,200,fs.readFileSync(fp),types[ext]||'application/octet-stream');
 }
 
@@ -325,72 +285,28 @@ const server=http.createServer(async(req,res)=>{
     if(req.method==='OPTIONS')return send(res,204,'','text/plain');
     const u=new URL(req.url,`http://${req.headers.host}`);
 
-    if(req.method==='GET'&&u.pathname==='/api/health'){
-      return send(res,200,{
-        ok:true,version:'3.5.0',
-        mode:azdoConfigured()?'AZURE_DEVOPS':'DEMO',
-        environment:process.env.WEBSITE_SITE_NAME?'AZURE_APP_SERVICE':'LOCAL_OR_CODESPACES',
-        azureDevOpsConfigured:azdoConfigured()
-      });
-    }
-
-    if(req.method==='GET'&&u.pathname==='/api/devops/status'){
-      return send(res,200,{
-        configured:azdoConfigured(),
-        organization:process.env.AZDO_ORG||'',
-        project:process.env.AZDO_PROJECT||'',
-        storyType:process.env.AZDO_STORY_TYPE||'User Story'
-      });
-    }
-
-    if(req.method==='GET'&&u.pathname==='/api/devops/work-items'){
-      if(!azdoConfigured())return send(res,503,{error:'Azure DevOps is not configured in App Service settings.'});
-      return send(res,200,{items:await queryWorkItems()});
-    }
-
-    if(req.method==='POST'&&u.pathname==='/api/ai-plan'){
-      const b=await readBody(req);
-      if(!b.project_requirement&&!b.projectRequirement&&!b.plan&&!b.epic&&!b.features)
-        return send(res,400,{error:'project_requirement or structured plan is required'});
-      return send(res,200,normalizePlan(b));
-    }
-
-    
-    if(req.method==='POST'&&u.pathname==='/api/discussion-summary'){
-      const b=await readBody(req);
-      if(!b.discussion_notes&&!b.notes)return send(res,400,{error:'discussion_notes is required'});
-      return send(res,200,extractDiscussion(b.discussion_notes||b.notes));
-    }
-
+    if(req.method==='GET'&&u.pathname==='/api/health')return send(res,200,{ok:true,version:'4.0.0',azureDevOpsConfigured:azdoConfigured(),sharePointConfigured:graphConfigured(),repoUploadConfigured:!!process.env.AZDO_REPO_ID,environment:process.env.WEBSITE_SITE_NAME?'AZURE_APP_SERVICE':'LOCAL_OR_CODESPACES'});
+    if(req.method==='GET'&&u.pathname==='/api/devops/status')return send(res,200,{configured:azdoConfigured(),organization:process.env.AZDO_ORG||'',project:process.env.AZDO_PROJECT||''});
+    if(req.method==='GET'&&u.pathname==='/api/devops/work-items'){if(!azdoConfigured())return send(res,503,{error:'Azure DevOps is not configured.'});return send(res,200,{items:await queryAllWorkItems()})}
+    if(req.method==='GET'&&u.pathname==='/api/devops/compliance'){if(!azdoConfigured())return send(res,503,{error:'Azure DevOps is not configured.'});return send(res,200,buildCompliance(await queryAllWorkItems()))}
+    if(req.method==='POST'&&u.pathname==='/api/ai-plan'){const b=await readBody(req);return send(res,200,normalizePlan(b))}
+    if(req.method==='POST'&&u.pathname==='/api/approve-plan'){const b=await readBody(req);if(b.approved!==true)return send(res,400,{error:'Explicit PM approval is required.'});if(!azdoConfigured())return send(res,503,{error:'Azure DevOps is not configured.'});return send(res,200,{created:await createHierarchy(b.plan),message:'Created in Azure DevOps.'})}
+    if(req.method==='POST'&&u.pathname==='/api/discussion-summary'){const b=await readBody(req);if(!b.discussion_notes&&!b.notes)return send(res,400,{error:'discussion_notes is required'});return send(res,200,extractDiscussion(b.discussion_notes||b.notes))}
+    if(req.method==='POST'&&u.pathname==='/api/mom'){const b=await readBody(req);if(!b.discussion_notes&&!b.notes)return send(res,400,{error:'discussion_notes is required'});return send(res,200,buildMOM(b.discussion_notes||b.notes))}
     if(req.method==='POST'&&u.pathname==='/api/devops/create-discussion-item'){
-      const b=await readBody(req);
-      if(b.approved!==true)return send(res,400,{error:'Explicit PM approval is required.'});
-      const created=await createDiscussionWorkItem(b);
-      return send(res,200,{
-        message:'Discussion item created in Azure DevOps.',
-        item:{
-          id:created.id,
-          title:created.fields?.['System.Title']||b.title,
-          type:created.fields?.['System.WorkItemType']||b.itemType,
-          state:created.fields?.['System.State']||'New'
-        }
-      });
+      const b=await readBody(req);if(b.approved!==true)return send(res,400,{error:'Explicit PM approval is required.'});if(!azdoConfigured())return send(res,503,{error:'Azure DevOps is not configured.'});
+      const type=b.itemType==='User Story'?(process.env.AZDO_STORY_TYPE||'User Story'):'Task';
+      const wi=await createWorkItem(type,b.title,null,{description:`Created from call discussion.<br><b>Owner:</b> PMO`,assignedTo:process.env.AZDO_PMO_ASSIGNEE||''});
+      return send(res,200,{item:{id:wi.id,title:b.title,type,state:wi.fields?.['System.State']||'New'}});
     }
-
-if(req.method==='POST'&&u.pathname==='/api/approve-plan'){
-      const b=await readBody(req);
-      if(!b.plan)return send(res,400,{error:'plan is required'});
-      if(b.approved!==true)return send(res,400,{error:'Explicit PM approval is required.'});
-      if(!azdoConfigured())return send(res,503,{error:'Azure DevOps is not configured.'});
-      const created=await createHierarchy(b.plan);
-      return send(res,200,{mode:'AZURE_DEVOPS',message:'Approved hierarchy created in Azure DevOps.',created});
+    if(req.method==='GET'&&u.pathname==='/api/documents/status')return send(res,200,{sharePointConfigured:graphConfigured(),devOpsRepoConfigured:!!(azdoConfigured()&&process.env.AZDO_REPO_ID),sharePointFolder:process.env.SHAREPOINT_FOLDER_PATH||'',devOpsRepoFolder:process.env.AZDO_REPO_FOLDER_PATH||''});
+    if(req.method==='POST'&&u.pathname==='/api/documents/upload'){
+      const b=await readBody(req);if(!b.filename||!b.contentBase64||!b.destination)return send(res,400,{error:'filename, contentBase64 and destination are required'});
+      if(b.destination==='sharepoint'){const r=await uploadSharePoint(b.filename,b.contentBase64);return send(res,200,{message:'Uploaded to SharePoint.',name:r.name||b.filename,webUrl:r.webUrl||''})}
+      if(b.destination==='devops'){const r=await uploadDevOpsRepo(b.filename,b.contentBase64);return send(res,200,{message:'Uploaded to Azure DevOps repository.',pushId:r.pushId||'',filename:b.filename})}
+      return send(res,400,{error:'Unsupported destination'});
     }
-
     return serve(u.pathname,res);
-  }catch(e){
-    console.error(e);
-    return send(res,500,{error:e.message||'Internal server error'});
-  }
+  }catch(e){console.error(e);return send(res,500,{error:e.message||'Internal server error'})}
 });
-
-server.listen(PORT,HOST,()=>console.log(`Project Command Center v3.5 running on ${HOST}:${PORT}`));
+server.listen(PORT,HOST,()=>console.log(`Project Command Center v4.0 running on ${HOST}:${PORT}`));

@@ -1,26 +1,76 @@
-# Project Command Center v3.3 — Working Executive Summary
+# Project Command Center v4.0 — PMO Governance
 
-## Executive Summary now works
+## Removed
+- Executive Summary navigation and page.
 
-The Executive Summary tab/section now consolidates:
+## Added
+### Azure DevOps Dashboard
+Live dashboard for:
+- Epics
+- Features
+- User Stories / Product Backlog Items
+- Tasks
+- State
+- Assignee
+- Iteration
+- Tags
 
-- Overall project health
-- Delivery progress
-- Open actions
-- Governance score
-- Executive narrative
-- Key milestones
-- Latest risks and attention areas
-- Decisions and PMO actions from the Latest Discussion Summary
-- Live Azure DevOps delivery snapshot when Azure DevOps is configured
-- Management next steps
-- Last-refreshed timestamp
-- Print / Save PDF through the browser
+### Azure DevOps Compliance
+Per-work-item compliance checks:
+- Tags updated
+- Sprint / Iteration assigned
+- Description updated
+- Acceptance Criteria updated for User Stories/PBIs
+- Assigned To updated
+- Start/Finish dates for Epic/Feature where applicable
 
-Click **Refresh Summary** to update the Executive Summary.
+### MOM Synchronization
+Analyse the latest call discussion and the MOM panel updates immediately from that discussion.
 
-If you first run **Analyse Discussion**, the extracted Decisions, PMO Actions and Risks are incorporated into the Executive Summary on refresh.
+### Document Upload
+Upload up to 10 MB in the MVP directly to:
+- SharePoint document library folder through Microsoft Graph
+- Azure DevOps Git repository folder through the Git Push REST API
 
-If Azure DevOps is configured, the Executive Summary reads the live work-item endpoint and displays work-item counts.
+## App Service environment variables
 
-Existing Azure DevOps and discussion endpoints remain unchanged.
+### Azure DevOps
+```text
+AZDO_ORG
+AZDO_PROJECT
+AZDO_PAT
+AZDO_STORY_TYPE=User Story
+AZDO_PMO_ASSIGNEE
+AZDO_REPO_ID
+AZDO_REPO_BRANCH=refs/heads/main
+AZDO_REPO_FOLDER_PATH=project-documents
+```
+
+PAT scopes need Work Items read/write. Repository upload additionally needs code write permission.
+
+### SharePoint / Microsoft Graph
+```text
+GRAPH_TENANT_ID
+GRAPH_CLIENT_ID
+GRAPH_CLIENT_SECRET
+SHAREPOINT_SITE_ID
+SHAREPOINT_DRIVE_ID
+SHAREPOINT_FOLDER_PATH=Project Command Center
+```
+
+The Entra application must have suitable Microsoft Graph application permissions to write to the target SharePoint site/library. Prefer site-scoped permissions such as Sites.Selected where your organization supports it.
+
+## API endpoints
+```text
+GET  /api/health
+GET  /api/devops/status
+GET  /api/devops/work-items
+GET  /api/devops/compliance
+POST /api/ai-plan
+POST /api/approve-plan
+POST /api/discussion-summary
+POST /api/mom
+POST /api/devops/create-discussion-item
+GET  /api/documents/status
+POST /api/documents/upload
+```
